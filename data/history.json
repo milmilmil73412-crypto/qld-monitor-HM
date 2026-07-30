@@ -1,10 +1,10 @@
 [
   {
     "date": "2026-07-31",
-    "close": 81.78,
+    "close": 82.0,
     "sma200": 76.56,
-    "deviation": 6.81,
-    "rsi": 50.1,
+    "deviation": 7.1,
+    "rsi": 50.4,
     "status": "관심"
   }
 ]

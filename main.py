@@ -389,7 +389,8 @@ def send_email(subject: str, html_body: str, dry_run: bool = False) -> None:
 def generate_dashboard_html(status: dict, close: float, sma200: float,
                             deviation: float, rsi: float, rsi_type: str,
                             margin: dict, history: list[dict],
-                            last_updated: str, current_year: int) -> str:
+                            last_updated: str, current_year: int,
+                            live_prices_json: str = "{}") -> str:
     """index.html 대시보드를 생성한다."""
     # 차트 데이터 (최근 30일)
     chart_json = json.dumps(history[-30:], ensure_ascii=False)
@@ -965,7 +966,9 @@ def generate_dashboard_html(status: dict, close: float, sma200: float,
         // ── Portfolio Manager (localStorage) ──
         // ══════════════════════════════════════════════
         const PF_KEY = 'qld_portfolio_v2';
-        let usdKrwRate = 1380; // 기본 환율 (API로 업데이트됨)
+        const SERVER_PRICES = {live_prices_json};
+        let usdKrwRate = SERVER_PRICES["USDKRW"] || 1380; // Python에서 수집한 환율
+
         const PF_COLORS = [
             '#3b82f6','#00d68f','#ffaa00','#ff6b35','#b86bff',
             '#ff3860','#06b6d4','#f43f5e','#84cc16','#a78bfa',
@@ -985,18 +988,46 @@ def generate_dashboard_html(status: dict, close: float, sma200: float,
         }}
         function pfSave(h) {{ localStorage.setItem(PF_KEY, JSON.stringify(h)); }}
 
+        async function fetchViaProxy(url) {{
+            const proxies = [
+                `https://api.allorigins.win/raw?url=${{encodeURIComponent(url)}}`,
+                `https://api.codetabs.com/v1/proxy?quest=${{encodeURIComponent(url)}}`
+            ];
+            for (let proxy of proxies) {{
+                try {{
+                    const res = await fetch(proxy, {{ cache: 'no-store' }});
+                    if (res.ok) return await res.json();
+                }} catch(e) {{}}
+            }}
+            return null;
+        }}
+
+        async function fetchNaverInfo(ticker) {{
+            let isUS = /^[A-Z]+$/.test(ticker);
+            let rawTicker = ticker.replace('.KS','').replace('.KQ','');
+            let url = isUS 
+                ? `https://api.stock.naver.com/stock/${{rawTicker}}.O/basic`
+                : `https://m.stock.naver.com/api/stock/${{rawTicker}}/basic`;
+            
+            const data = await fetchViaProxy(url);
+            if (data && data.closePrice) {{
+                let price = parseFloat(data.closePrice.replace(/,/g, ''));
+                let currency = 'KRW';
+                if (data.stockExchangeType && data.stockExchangeType.nationType !== 'KOR') currency = 'USD';
+                if (data.currencyType) currency = data.currencyType.code;
+                return {{ price, currency }};
+            }}
+            return null;
+        }}
+
         async function fetchYahooInfo(ticker) {{
             const url = `https://query1.finance.yahoo.com/v8/finance/chart/${{ticker}}`;
-            const proxyUrl = `https://api.allorigins.win/get?url=${{encodeURIComponent(url)}}`;
-            try {{
-                const res = await fetch(proxyUrl);
-                const data = await res.json();
-                const parsed = JSON.parse(data.contents);
-                const meta = parsed.chart.result[0].meta;
-                return {{ price: meta.regularMarketPrice, currency: meta.currency }};
-            }} catch(e) {{
-                return null;
+            const data = await fetchViaProxy(url);
+            if (data && data.chart && data.chart.result) {{
+                const meta = data.chart.result[0].meta;
+                return {{ price: meta.regularMarketPrice || meta.chartPreviousClose, currency: meta.currency }};
             }}
+            return null;
         }}
 
         async function getLivePrice(ticker) {{
@@ -1004,18 +1035,41 @@ def generate_dashboard_html(status: dict, close: float, sma200: float,
             if (t === 'CASH' || t === '현금' || t === 'CMA') {{
                 return {{ symbol: 'CASH', price: 1, currency: 'KRW' }};
             }}
-            if (/^\d{{6}}$/.test(t)) t += '.KS';
             
-            let info = await fetchYahooInfo(t);
-            if (!info && /^\d{{6}}\.KS$/.test(t)) {{
-                t = t.replace('.KS', '.KQ');
-                info = await fetchYahooInfo(t);
+            if (SERVER_PRICES[t]) {{
+                return {{ symbol: t, price: SERVER_PRICES[t], currency: (t === 'DGRO' || t === 'AAPL' || t === 'QQQ' || t === 'SPY') ? 'USD' : 'KRW' }};
             }}
-            if (!info) {{
-                info = await fetchYahooInfo(ticker.trim().toUpperCase());
+
+            // 1. 네이버 금융 시도 (우회 차단이 적고 한국/미국 주식 모두 지원)
+            let naverInfo = await fetchNaverInfo(t);
+            if (naverInfo) {{
+                naverInfo.symbol = t;
+                return naverInfo;
             }}
-            if(info) info.symbol = t;
-            return info;
+
+            // 2. 야후 파이낸스 시도 (최후의 보루)
+            let queryTicker = t;
+            if (/^\d{{6}}$/.test(queryTicker)) queryTicker += '.KS';
+            
+            let yfInfo = await fetchYahooInfo(queryTicker);
+            if (!yfInfo && /^\d{{6}}\.KS$/.test(queryTicker)) {{
+                queryTicker = queryTicker.replace('.KS', '.KQ');
+                yfInfo = await fetchYahooInfo(queryTicker);
+            }}
+            if (!yfInfo) yfInfo = await fetchYahooInfo(t);
+            
+            if(yfInfo) {{
+                yfInfo.symbol = t;
+                return yfInfo;
+            }}
+            
+            // 3. 모두 실패 시 수동 입력 창
+            const manualPrice = prompt(`'${{t}}'의 현재가를 자동으로 불러오지 못했습니다. (서버 보안 차단)\n보유하신 1주당 단가를 직접 입력해주세요:`);
+            if (manualPrice && !isNaN(parseFloat(manualPrice))) {{
+                const guessedCurrency = /^[A-Z]+$/.test(t) ? 'USD' : 'KRW';
+                return {{ symbol: t, price: parseFloat(manualPrice), currency: guessedCurrency }};
+            }}
+            return null;
         }}
 
         async function pfAdd() {{
@@ -1030,7 +1084,7 @@ def generate_dashboard_html(status: dict, close: float, sma200: float,
             const msg = document.getElementById('pf-status-msg');
             btn.disabled = true;
             btn.innerText = "조회 중...";
-            msg.innerText = "현재가를 실시간으로 불러오는 중입니다 (Yahoo Finance)...";
+            msg.innerText = "현재가를 불러오는 중입니다...";
             
             const info = await getLivePrice(ticker);
             
@@ -1038,10 +1092,7 @@ def generate_dashboard_html(status: dict, close: float, sma200: float,
             btn.innerText = "+ 추가";
             msg.innerText = "";
             
-            if (!info) {{
-                alert(`'${{ticker}}'의 현재가를 찾을 수 없습니다.\n한국 주식은 6자리 숫자(예: 418660), 미국 주식은 티커(예: AAPL)를 입력하세요.\n현금은 'CASH'라고 입력하세요.`);
-                return;
-            }}
+            if (!info) return;
             
             const h = pfLoad();
             const existing = h.find(x => x.ticker === info.symbol);
@@ -1134,7 +1185,7 @@ def generate_dashboard_html(status: dict, close: float, sma200: float,
             let angle = -Math.PI / 2;
 
             holdings.forEach((h, i) => {{
-                const pct = total > 0 ? h.value / total : 0;
+                const pct = total > 0 ? h.krwValue / total : 0;
                 const sweep = pct * Math.PI * 2;
                 ctx.beginPath();
                 ctx.arc(cx, cy, R, angle, angle + sweep);
@@ -1145,7 +1196,6 @@ def generate_dashboard_html(status: dict, close: float, sma200: float,
                 angle += sweep;
             }});
 
-            // 중앙 텍스트
             ctx.fillStyle = '#f1f5f9'; ctx.font = '700 16px Inter'; ctx.textAlign = 'center';
             ctx.fillText('₩' + pfFmt(total), cx, cy - 2);
             ctx.fillStyle = '#8b9bb4'; ctx.font = '11px Inter';
@@ -1154,27 +1204,18 @@ def generate_dashboard_html(status: dict, close: float, sma200: float,
 
         function pfDrawCompare(holdings, total) {{
             const container = document.getElementById('pf-compare');
-            // 보유 종목을 목표 카테고리별로 매핑
             const currentMap = {{}};
             holdings.forEach(h => {{
-                const key = h.name.trim();
-                currentMap[key] = (currentMap[key] || 0) + (total > 0 ? h.value / total * 100 : 0);
+                const key = h.ticker;
+                currentMap[key] = (currentMap[key] || 0) + (total > 0 ? h.krwValue / total * 100 : 0);
             }});
 
-            // 목표 vs 현재 비교 바 생성
             let html = '';
             const maxPct = 100;
 
-            // 목표 포트폴리오 항목 표시
             PF_TARGET.forEach(t => {{
-                // 보유 종목 중 목표 카테고리와 매칭되는 것 찾기
-                let currentPct = 0;
-                Object.keys(currentMap).forEach(k => {{
-                    if (k.includes(t.name.split(' ')[0])) {{
-                        currentPct += currentMap[k];
-                        delete currentMap[k]; // 매칭된 것 제거
-                    }}
-                }});
+                let currentPct = currentMap[t.ticker] || 0;
+                delete currentMap[t.ticker];
 
                 const diff = currentPct - t.pct;
                 const diffStr = diff > 0 ? `+${{diff.toFixed(1)}}%` : `${{diff.toFixed(1)}}%`;
@@ -1189,7 +1230,6 @@ def generate_dashboard_html(status: dict, close: float, sma200: float,
                 </div>`;
             }});
 
-            // 매칭 안 된 기타 종목들
             let otherPct = 0;
             Object.values(currentMap).forEach(v => otherPct += v);
             if (otherPct > 0.5) {{
@@ -1203,9 +1243,6 @@ def generate_dashboard_html(status: dict, close: float, sma200: float,
 
             container.innerHTML = html;
         }}
-
-        // 초기 렌더링
-        pfRender();
     </script>
 </body>
 </html>"""
@@ -1262,10 +1299,27 @@ def main():
     print(f"   {status['description']}")
     print(f"   1단계까지: 괴리율 {margin['deviation_margin']:.2f}%p / RSI {margin['rsi_margin']:.1f}pt")
 
+    # ── 3.5 포트폴리오 기준가 사전 수집 (웹페이지 주입용) ──
+    print("\n📡 포트폴리오 기준가 사전 수집 중...")
+    target_tickers = ["418660.KS", "486290.KS", "DGRO", "0046A0.KS"]
+    live_prices = {}
+    try:
+        usd_krw = float(yf.Ticker("KRW=X").history(period="1d")["Close"].iloc[-1])
+        live_prices["USDKRW"] = usd_krw
+    except:
+        live_prices["USDKRW"] = 1380.0
+        
+    for t in target_tickers:
+        try:
+            p = float(yf.Ticker(t).history(period="1d")["Close"].iloc[-1])
+            live_prices[t.replace(".KS", "")] = p
+        except:
+            pass
+
     # ── 4. 이력 업데이트 ──
     date_str = now_kst.strftime("%Y-%m-%d")
     history = update_history(date_str, close, sma200, deviation, rsi, status["name"])
-    print(f"\n💾 이력 저장 완료 ({len(history)}일치)")
+    print(f"💾 이력 저장 완료 ({len(history)}일치)")
 
     # ── 5. 이메일 발송 ──
     if weekday == 5:  # 토요일
@@ -1284,6 +1338,7 @@ def main():
         deviation=deviation, rsi=rsi, rsi_type=rsi_type,
         margin=margin, history=history,
         last_updated=last_updated, current_year=now_kst.year,
+        live_prices_json=json.dumps(live_prices)
     )
 
     with open(OUTPUT_HTML_PATH, "w", encoding="utf-8") as f:
