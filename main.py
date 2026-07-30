@@ -539,6 +539,83 @@ def generate_dashboard_html(status: dict, close: float, sma200: float,
             line-height:1.6;
         }}
 
+        /* ── Portfolio Section ── */
+        .pf-section {{ margin-top:0.5rem; }}
+        .pf-section .metric-title {{ margin-bottom:1rem; }}
+        .pf-add-form {{
+            display:grid; grid-template-columns:2fr 1fr 1fr auto; gap:0.5rem;
+            margin-bottom:1rem; align-items:end;
+        }}
+        .pf-add-form label {{ font-size:0.75rem; color:var(--text-secondary); display:block; margin-bottom:0.25rem; }}
+        .pf-input {{
+            width:100%; padding:0.6rem 0.75rem; border-radius:8px;
+            border:1px solid var(--border-color); background:rgba(255,255,255,0.05);
+            color:var(--text-primary); font-size:0.9rem; font-family:inherit;
+            outline:none; transition:border 0.2s;
+        }}
+        .pf-input:focus {{ border-color:var(--status-color); }}
+        .pf-input::placeholder {{ color:rgba(255,255,255,0.2); }}
+        .pf-btn {{
+            padding:0.6rem 1.2rem; border-radius:8px; border:none;
+            background:linear-gradient(135deg, #3b82f6, #2563eb); color:#fff;
+            font-weight:600; font-size:0.85rem; cursor:pointer; transition:all 0.2s;
+            white-space:nowrap;
+        }}
+        .pf-btn:hover {{ transform:translateY(-1px); box-shadow:0 4px 12px rgba(59,130,246,0.4); }}
+        .pf-btn-sm {{
+            padding:0.3rem 0.6rem; border-radius:6px; border:none;
+            background:rgba(255,56,96,0.15); color:#ff3860;
+            font-size:0.75rem; cursor:pointer; transition:all 0.2s;
+        }}
+        .pf-btn-sm:hover {{ background:rgba(255,56,96,0.3); }}
+
+        .pf-table {{ width:100%; border-collapse:collapse; }}
+        .pf-table th {{
+            text-align:left; padding:0.6rem; font-size:0.75rem; color:var(--text-secondary);
+            text-transform:uppercase; letter-spacing:1px; border-bottom:1px solid var(--border-color);
+        }}
+        .pf-table td {{
+            padding:0.6rem; font-size:0.85rem; border-bottom:1px solid rgba(255,255,255,0.04);
+            color:var(--text-primary);
+        }}
+        .pf-table tr:last-child td {{ border-bottom:none; }}
+        .pf-table .pf-total-row td {{
+            font-weight:700; border-top:1px solid var(--border-color);
+            padding-top:0.8rem; font-size:0.95rem;
+        }}
+        .pf-empty {{ text-align:center; padding:2rem; color:var(--text-secondary); font-size:0.9rem; }}
+
+        .pf-visual-grid {{ display:grid; grid-template-columns:280px 1fr; gap:1.5rem; margin-top:1.5rem; align-items:start; }}
+        .pf-donut-wrap {{ display:flex; flex-direction:column; align-items:center; }}
+        .pf-donut-wrap canvas {{ width:240px !important; height:240px !important; }}
+
+        .pf-compare-bars {{ display:flex; flex-direction:column; gap:0.75rem; }}
+        .pf-compare-item {{ }}
+        .pf-compare-label {{
+            display:flex; justify-content:space-between; font-size:0.8rem;
+            margin-bottom:0.3rem; color:var(--text-secondary);
+        }}
+        .pf-compare-label strong {{ color:var(--text-primary); }}
+        .pf-bar-track {{
+            height:20px; background:rgba(255,255,255,0.06); border-radius:6px;
+            position:relative; overflow:hidden;
+        }}
+        .pf-bar-current {{
+            height:100%; border-radius:6px; position:absolute; top:0; left:0;
+            transition:width 0.8s ease; opacity:0.9;
+        }}
+        .pf-bar-target {{
+            height:100%; border-top:2px dashed rgba(255,255,255,0.35);
+            border-right:2px dashed rgba(255,255,255,0.35);
+            position:absolute; top:0; left:0; border-radius:6px;
+            transition:width 0.8s ease;
+        }}
+        .pf-compare-legend {{
+            display:flex; gap:1.5rem; justify-content:center; margin-top:0.5rem;
+            font-size:0.75rem; color:var(--text-secondary);
+        }}
+        .pf-legend-box {{ width:12px; height:12px; border-radius:3px; display:inline-block; vertical-align:middle; margin-right:4px; }}
+
         /* ── Responsive ── */
         @media (max-width: 768px) {{
             body {{ padding:1rem; }}
@@ -549,6 +626,9 @@ def generate_dashboard_html(status: dict, close: float, sma200: float,
             .hero-card {{ padding:2rem 1rem; }}
             .metric-value {{ font-size:1.6rem; }}
             header {{ flex-direction:column; align-items:flex-start; }}
+            .pf-add-form {{ grid-template-columns:1fr 1fr; }}
+            .pf-visual-grid {{ grid-template-columns:1fr; }}
+            .pf-donut-wrap canvas {{ width:200px !important; height:200px !important; }}
         }}
     </style>
 </head>
@@ -623,6 +703,48 @@ def generate_dashboard_html(status: dict, close: float, sma200: float,
                 <span><span class="legend-dot" style="background:#ffaa00;"></span> 괴리율 (좌축)</span>
                 <span><span class="legend-dot" style="background:#00d68f;"></span> RSI (우축)</span>
                 <span><span class="legend-dot" style="background:rgba(255,56,96,0.5);"></span> 임계선</span>
+            </div>
+        </div>
+
+        <!-- 내 포트폴리오 현황 -->
+        <div class="glass-card pf-section" id="portfolio-section">
+            <div class="metric-title">💼 내 포트폴리오 현황</div>
+
+            <!-- 종목 추가 폼 -->
+            <div class="pf-add-form">
+                <div>
+                    <label>종목명</label>
+                    <input type="text" class="pf-input" id="pf-name" placeholder="예: 삼성전자">
+                </div>
+                <div>
+                    <label>수량</label>
+                    <input type="number" class="pf-input" id="pf-qty" placeholder="0" min="0" step="any">
+                </div>
+                <div>
+                    <label>단가 (₩ 또는 $)</label>
+                    <input type="number" class="pf-input" id="pf-price" placeholder="0" min="0" step="any">
+                </div>
+                <div style="padding-top:1.1rem;">
+                    <button class="pf-btn" onclick="pfAdd()">+ 추가</button>
+                </div>
+            </div>
+
+            <!-- 보유 종목 테이블 -->
+            <div id="pf-table-wrap"></div>
+
+            <!-- 시각화: 도넛 + 비교 바 -->
+            <div class="pf-visual-grid" id="pf-visuals" style="display:none;">
+                <div class="pf-donut-wrap">
+                    <canvas id="pfDonut" width="240" height="240"></canvas>
+                </div>
+                <div>
+                    <div style="font-size:0.8rem;color:var(--text-secondary);text-transform:uppercase;letter-spacing:1px;margin-bottom:0.75rem;">현재 vs 목표 배분</div>
+                    <div id="pf-compare"></div>
+                    <div class="pf-compare-legend">
+                        <span><span class="pf-legend-box" style="background:#3b82f6;opacity:0.9;"></span> 현재</span>
+                        <span><span class="pf-legend-box" style="border:2px dashed rgba(255,255,255,0.35);background:transparent;"></span> 목표</span>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -841,6 +963,201 @@ def generate_dashboard_html(status: dict, close: float, sma200: float,
 
         drawChart();
         window.addEventListener('resize', drawChart);
+
+        // ══════════════════════════════════════════════
+        // ── Portfolio Manager (localStorage) ──
+        // ══════════════════════════════════════════════
+        const PF_KEY = 'qld_portfolio_v1';
+        const PF_COLORS = [
+            '#3b82f6','#00d68f','#ffaa00','#ff6b35','#b86bff',
+            '#ff3860','#06b6d4','#f43f5e','#84cc16','#a78bfa',
+            '#fb923c','#22d3ee','#e879f9','#facc15','#4ade80'
+        ];
+        const PF_TARGET = [
+            {{ name:'418660 TIGER 레버리지', pct:42, color:'#3b82f6' }},
+            {{ name:'486290 TIGER 커버드콜', pct:21, color:'#00d68f' }},
+            {{ name:'DGRO 배당성장', pct:7, color:'#ffaa00' }},
+            {{ name:'0046A0 초단기국채', pct:24, color:'#ff6b35' }},
+            {{ name:'CMA 현금', pct:6, color:'#b86bff' }},
+        ];
+
+        function pfLoad() {{
+            try {{ return JSON.parse(localStorage.getItem(PF_KEY)) || []; }}
+            catch {{ return []; }}
+        }}
+        function pfSave(h) {{ localStorage.setItem(PF_KEY, JSON.stringify(h)); }}
+
+        function pfAdd() {{
+            const name = document.getElementById('pf-name').value.trim();
+            const qty = parseFloat(document.getElementById('pf-qty').value);
+            const price = parseFloat(document.getElementById('pf-price').value);
+            if (!name || isNaN(qty) || isNaN(price) || qty <= 0 || price <= 0) {{
+                alert('종목명, 수량, 단가를 모두 입력해주세요.');
+                return;
+            }}
+            const h = pfLoad();
+            h.push({{ id: Date.now(), name, qty, price }});
+            pfSave(h);
+            document.getElementById('pf-name').value = '';
+            document.getElementById('pf-qty').value = '';
+            document.getElementById('pf-price').value = '';
+            pfRender();
+        }}
+
+        function pfRemove(id) {{
+            pfSave(pfLoad().filter(x => x.id !== id));
+            pfRender();
+        }}
+
+        function pfEdit(id) {{
+            const h = pfLoad();
+            const item = h.find(x => x.id === id);
+            if (!item) return;
+            const newQty = prompt('수량 수정:', item.qty);
+            if (newQty === null) return;
+            const newPrice = prompt('단가 수정:', item.price);
+            if (newPrice === null) return;
+            item.qty = parseFloat(newQty) || item.qty;
+            item.price = parseFloat(newPrice) || item.price;
+            pfSave(h);
+            pfRender();
+        }}
+
+        function pfFmt(n) {{
+            if (n >= 1e8) return (n/1e8).toFixed(1) + '억';
+            if (n >= 1e4) return (n/1e4).toFixed(0) + '만';
+            return n.toLocaleString();
+        }}
+
+        function pfRender() {{
+            const holdings = pfLoad();
+            const wrap = document.getElementById('pf-table-wrap');
+            const visuals = document.getElementById('pf-visuals');
+
+            if (holdings.length === 0) {{
+                wrap.innerHTML = '<div class="pf-empty">종목을 추가하면 자산 배분 현황이 여기에 표시됩니다.</div>';
+                visuals.style.display = 'none';
+                return;
+            }}
+
+            // 평가액 계산
+            let total = 0;
+            holdings.forEach(h => {{ h.value = h.qty * h.price; total += h.value; }});
+
+            // 테이블 렌더링
+            let rows = holdings.map((h, i) => {{
+                const pct = total > 0 ? (h.value / total * 100).toFixed(1) : '0.0';
+                const c = PF_COLORS[i % PF_COLORS.length];
+                return `<tr>
+                    <td><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${{c}};margin-right:6px;"></span>${{h.name}}</td>
+                    <td style="text-align:right;">${{h.qty.toLocaleString()}}</td>
+                    <td style="text-align:right;">₩${{h.price.toLocaleString()}}</td>
+                    <td style="text-align:right;">₩${{pfFmt(h.value)}}</td>
+                    <td style="text-align:right;color:var(--text-secondary);">${{pct}}%</td>
+                    <td style="text-align:right;white-space:nowrap;">
+                        <button class="pf-btn-sm" onclick="pfEdit(${{h.id}})" style="background:rgba(59,130,246,0.15);color:#3b82f6;margin-right:4px;">수정</button>
+                        <button class="pf-btn-sm" onclick="pfRemove(${{h.id}})">삭제</button>
+                    </td>
+                </tr>`;
+            }}).join('');
+
+            wrap.innerHTML = `<table class="pf-table">
+                <thead><tr><th>종목</th><th style="text-align:right;">수량</th><th style="text-align:right;">단가</th><th style="text-align:right;">평가액</th><th style="text-align:right;">비중</th><th></th></tr></thead>
+                <tbody>${{rows}}
+                <tr class="pf-total-row"><td colspan="3">합계</td><td style="text-align:right;">₩${{pfFmt(total)}}</td><td colspan="2"></td></tr>
+                </tbody></table>`;
+
+            // 시각화
+            visuals.style.display = 'grid';
+            pfDrawDonut(holdings, total);
+            pfDrawCompare(holdings, total);
+        }}
+
+        function pfDrawDonut(holdings, total) {{
+            const canvas = document.getElementById('pfDonut');
+            const dpr = window.devicePixelRatio || 1;
+            const size = 240;
+            canvas.width = size * dpr; canvas.height = size * dpr;
+            canvas.style.width = size + 'px'; canvas.style.height = size + 'px';
+            const ctx = canvas.getContext('2d');
+            ctx.scale(dpr, dpr);
+
+            const cx = size/2, cy = size/2, R = 90, r = 55;
+            let angle = -Math.PI / 2;
+
+            holdings.forEach((h, i) => {{
+                const pct = total > 0 ? h.value / total : 0;
+                const sweep = pct * Math.PI * 2;
+                ctx.beginPath();
+                ctx.arc(cx, cy, R, angle, angle + sweep);
+                ctx.arc(cx, cy, r, angle + sweep, angle, true);
+                ctx.closePath();
+                ctx.fillStyle = PF_COLORS[i % PF_COLORS.length];
+                ctx.fill();
+                angle += sweep;
+            }});
+
+            // 중앙 텍스트
+            ctx.fillStyle = '#f1f5f9'; ctx.font = '700 16px Inter'; ctx.textAlign = 'center';
+            ctx.fillText('₩' + pfFmt(total), cx, cy - 2);
+            ctx.fillStyle = '#8b9bb4'; ctx.font = '11px Inter';
+            ctx.fillText('총 자산', cx, cy + 16);
+        }}
+
+        function pfDrawCompare(holdings, total) {{
+            const container = document.getElementById('pf-compare');
+            // 보유 종목을 목표 카테고리별로 매핑
+            const currentMap = {{}};
+            holdings.forEach(h => {{
+                const key = h.name.trim();
+                currentMap[key] = (currentMap[key] || 0) + (total > 0 ? h.value / total * 100 : 0);
+            }});
+
+            // 목표 vs 현재 비교 바 생성
+            let html = '';
+            const maxPct = 100;
+
+            // 목표 포트폴리오 항목 표시
+            PF_TARGET.forEach(t => {{
+                // 보유 종목 중 목표 카테고리와 매칭되는 것 찾기
+                let currentPct = 0;
+                Object.keys(currentMap).forEach(k => {{
+                    if (k.includes(t.name.split(' ')[0])) {{
+                        currentPct += currentMap[k];
+                        delete currentMap[k]; // 매칭된 것 제거
+                    }}
+                }});
+
+                const diff = currentPct - t.pct;
+                const diffStr = diff > 0 ? `+${{diff.toFixed(1)}}%` : `${{diff.toFixed(1)}}%`;
+                const diffColor = Math.abs(diff) < 3 ? '#00d68f' : (diff < 0 ? '#ff3860' : '#ffaa00');
+
+                html += `<div class="pf-compare-item">
+                    <div class="pf-compare-label"><strong>${{t.name}}</strong><span style="color:${{diffColor}}">${{currentPct.toFixed(1)}}% / ${{t.pct}}% (${{diffStr}})</span></div>
+                    <div class="pf-bar-track">
+                        <div class="pf-bar-current" style="width:${{Math.min(currentPct, maxPct)}}%;background:${{t.color}};"></div>
+                        <div class="pf-bar-target" style="width:${{t.pct}}%;"></div>
+                    </div>
+                </div>`;
+            }});
+
+            // 매칭 안 된 기타 종목들
+            let otherPct = 0;
+            Object.values(currentMap).forEach(v => otherPct += v);
+            if (otherPct > 0.5) {{
+                html += `<div class="pf-compare-item">
+                    <div class="pf-compare-label"><strong>기타 (정리 대상)</strong><span style="color:#ff3860">${{otherPct.toFixed(1)}}% / 0% (+${{otherPct.toFixed(1)}}%)</span></div>
+                    <div class="pf-bar-track">
+                        <div class="pf-bar-current" style="width:${{Math.min(otherPct, maxPct)}}%;background:#64748b;"></div>
+                    </div>
+                </div>`;
+            }}
+
+            container.innerHTML = html;
+        }}
+
+        // 초기 렌더링
+        pfRender();
     </script>
 </body>
 </html>"""
