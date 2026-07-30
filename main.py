@@ -1030,6 +1030,54 @@ def generate_dashboard_html(status: dict, close: float, sma200: float,
             return null;
         }}
 
+        async function getLivePriceSilent(ticker) {{
+            let t = ticker.trim().toUpperCase();
+            if (t === 'CASH' || t === '현금' || t === 'CMA') return null;
+            if (SERVER_PRICES[t]) return {{ symbol: t, price: SERVER_PRICES[t], currency: (t === 'DGRO' || t === 'AAPL' || t === 'QQQ' || t === 'SPY') ? 'USD' : 'KRW' }};
+
+            let naverInfo = await fetchNaverInfo(t);
+            if (naverInfo) {{ naverInfo.symbol = t; return naverInfo; }}
+
+            let queryTicker = t;
+            if (/^\d{{6}}$/.test(queryTicker)) queryTicker += '.KS';
+            let yfInfo = await fetchYahooInfo(queryTicker);
+            if (!yfInfo && /^\d{{6}}\.KS$/.test(queryTicker)) {{
+                queryTicker = queryTicker.replace('.KS', '.KQ');
+                yfInfo = await fetchYahooInfo(queryTicker);
+            }}
+            if (!yfInfo) yfInfo = await fetchYahooInfo(t);
+            
+            if(yfInfo) {{ yfInfo.symbol = t; return yfInfo; }}
+            return null;
+        }}
+
+        // 페이지 로드 시 백그라운드로 가격 및 환율 업데이트
+        async function pfInitAutoUpdate() {{
+            pfRender();
+            
+            try {{
+                const rateInfo = await fetchYahooInfo('KRW=X');
+                if (rateInfo && rateInfo.price) usdKrwRate = rateInfo.price;
+                
+                const holdings = pfLoad();
+                let updated = false;
+                for (let h of holdings) {{
+                    if (h.ticker === 'CASH' || SERVER_PRICES[h.ticker]) continue;
+                    
+                    const live = await getLivePriceSilent(h.ticker);
+                    if (live && live.price) {{
+                        h.price = live.price;
+                        if (live.currency) h.currency = live.currency;
+                        updated = true;
+                    }}
+                }}
+                if (updated) {{
+                    pfSave(holdings);
+                    pfRender();
+                }}
+            }} catch(e) {{}}
+        }}
+
         async function getLivePrice(ticker) {{
             let t = ticker.trim().toUpperCase();
             if (t === 'CASH' || t === '현금' || t === 'CMA') {{
@@ -1243,6 +1291,8 @@ def generate_dashboard_html(status: dict, close: float, sma200: float,
 
             container.innerHTML = html;
         }}
+
+        pfInitAutoUpdate();
     </script>
 </body>
 </html>"""

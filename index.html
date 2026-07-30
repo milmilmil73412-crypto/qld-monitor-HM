@@ -236,7 +236,7 @@
     <div class="container">
         <header>
             <h1>📊 QLD 모니터링 대시보드</h1>
-            <div class="last-updated">마지막 업데이트: 2026-07-31 01:54 KST</div>
+            <div class="last-updated">마지막 업데이트: 2026-07-31 02:03 KST</div>
         </header>
 
         <!-- 상태 히어로 카드 -->
@@ -250,17 +250,17 @@
         <div class="metrics-grid">
             <div class="glass-card" id="metric-close">
                 <div class="metric-title">현재가 (QLD)</div>
-                <div class="metric-value">$82.00</div>
-                <div class="metric-sub">SMA200: $76.56</div>
+                <div class="metric-value">$82.25</div>
+                <div class="metric-sub">SMA200: $76.57</div>
             </div>
             <div class="glass-card" id="metric-deviation">
                 <div class="metric-title">200일선 괴리율</div>
-                <div class="metric-value" style="color:#00d68f">+7.10%</div>
+                <div class="metric-value" style="color:#00d68f">+7.42%</div>
                 <div class="metric-sub">임계: -10% / -18% / -26%</div>
             </div>
             <div class="glass-card" id="metric-rsi">
                 <div class="metric-title">주봉 RSI (진행형)</div>
-                <div class="metric-value" style="color:#00d68f">50.4</div>
+                <div class="metric-value" style="color:#00d68f">50.6</div>
                 <div class="metric-sub">임계: 48 / 42 / 36</div>
             </div>
         </div>
@@ -271,8 +271,8 @@
                 <div class="metric-title">1단계 진입까지 — 괴리율</div>
                 <div class="progress-container">
                     <div class="progress-label">
-                        <span>현재: +7.10%</span>
-                        <span>목표: -10% (17.10%p 남음)</span>
+                        <span>현재: +7.42%</span>
+                        <span>목표: -10% (17.42%p 남음)</span>
                     </div>
                     <div class="progress-bar-bg">
                         <div class="progress-fill" id="dev-bar"></div>
@@ -283,8 +283,8 @@
                 <div class="metric-title">1단계 진입까지 — RSI</div>
                 <div class="progress-container">
                     <div class="progress-label">
-                        <span>현재: 50.4</span>
-                        <span>목표: 48 (2.4pt 남음)</span>
+                        <span>현재: 50.6</span>
+                        <span>목표: 48 (2.6pt 남음)</span>
                     </div>
                     <div class="progress-bar-bg">
                         <div class="progress-fill" id="rsi-bar"></div>
@@ -422,12 +422,12 @@
         window.addEventListener('load', function() {
             setTimeout(function() {
                 document.getElementById('dev-bar').style.width = '0.0%';
-                document.getElementById('rsi-bar').style.width = '89.1%';
+                document.getElementById('rsi-bar').style.width = '88.2%';
             }, 300);
         });
 
         // ── Chart ──
-        const chartData = [{"date": "2026-07-31", "close": 82.0, "sma200": 76.56, "deviation": 7.1, "rsi": 50.4, "status": "관심"}];
+        const chartData = [{"date": "2026-07-31", "close": 82.25, "sma200": 76.57, "deviation": 7.42, "rsi": 50.6, "status": "관심"}];
 
         function drawChart() {
             const canvas = document.getElementById('trendChart');
@@ -565,7 +565,7 @@
         // ── Portfolio Manager (localStorage) ──
         // ══════════════════════════════════════════════
         const PF_KEY = 'qld_portfolio_v2';
-        const SERVER_PRICES = {"USDKRW": 1424.5799560546875, "418660": 37405.0, "486290": 10285.0, "DGRO": 78.06500244140625, "0046A0": 9935.0};
+        const SERVER_PRICES = {"USDKRW": 1422.6800537109375, "418660": 37405.0, "486290": 10285.0, "DGRO": 78.125, "0046A0": 9935.0};
         let usdKrwRate = SERVER_PRICES["USDKRW"] || 1380; // Python에서 수집한 환율
 
         const PF_COLORS = [
@@ -627,6 +627,54 @@
                 return { price: meta.regularMarketPrice || meta.chartPreviousClose, currency: meta.currency };
             }
             return null;
+        }
+
+        async function getLivePriceSilent(ticker) {
+            let t = ticker.trim().toUpperCase();
+            if (t === 'CASH' || t === '현금' || t === 'CMA') return null;
+            if (SERVER_PRICES[t]) return { symbol: t, price: SERVER_PRICES[t], currency: (t === 'DGRO' || t === 'AAPL' || t === 'QQQ' || t === 'SPY') ? 'USD' : 'KRW' };
+
+            let naverInfo = await fetchNaverInfo(t);
+            if (naverInfo) { naverInfo.symbol = t; return naverInfo; }
+
+            let queryTicker = t;
+            if (/^\d{6}$/.test(queryTicker)) queryTicker += '.KS';
+            let yfInfo = await fetchYahooInfo(queryTicker);
+            if (!yfInfo && /^\d{6}\.KS$/.test(queryTicker)) {
+                queryTicker = queryTicker.replace('.KS', '.KQ');
+                yfInfo = await fetchYahooInfo(queryTicker);
+            }
+            if (!yfInfo) yfInfo = await fetchYahooInfo(t);
+            
+            if(yfInfo) { yfInfo.symbol = t; return yfInfo; }
+            return null;
+        }
+
+        // 페이지 로드 시 백그라운드로 가격 및 환율 업데이트
+        async function pfInitAutoUpdate() {
+            pfRender();
+            
+            try {
+                const rateInfo = await fetchYahooInfo('KRW=X');
+                if (rateInfo && rateInfo.price) usdKrwRate = rateInfo.price;
+                
+                const holdings = pfLoad();
+                let updated = false;
+                for (let h of holdings) {
+                    if (h.ticker === 'CASH' || SERVER_PRICES[h.ticker]) continue;
+                    
+                    const live = await getLivePriceSilent(h.ticker);
+                    if (live && live.price) {
+                        h.price = live.price;
+                        if (live.currency) h.currency = live.currency;
+                        updated = true;
+                    }
+                }
+                if (updated) {
+                    pfSave(holdings);
+                    pfRender();
+                }
+            } catch(e) {}
         }
 
         async function getLivePrice(ticker) {
@@ -843,6 +891,8 @@
 
             container.innerHTML = html;
         }
+
+        pfInitAutoUpdate();
     </script>
 </body>
 </html>
