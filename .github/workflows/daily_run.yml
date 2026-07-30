@@ -1,0 +1,50 @@
+name: QLD Daily Monitor
+
+on:
+  schedule:
+    # UTC 23:00 (일~목) = KST 08:00 (월~금) 실행
+    - cron: '0 23 * * 0-4'
+    # UTC 23:00 (금) = KST 08:00 (토) → 확정 주봉 리포트
+    - cron: '0 23 * * 5'
+  workflow_dispatch:
+    # 수동 실행 버튼 (테스트용)
+
+permissions:
+  contents: write
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.ACTIONS_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run QLD monitor
+        env:
+          GMAIL_ADDRESS: ${{ secrets.GMAIL_ADDRESS }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+        run: python main.py
+
+      - name: Commit and push updated files
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add index.html data/history.json
+          # 변경사항이 있을 때만 커밋
+          git diff --staged --quiet || {
+            TIMESTAMP=$(TZ='Asia/Seoul' date '+%Y-%m-%d %H:%M KST')
+            git commit -m "📊 QLD 모니터링 업데이트: ${TIMESTAMP}"
+            git push
+          }

@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QLD 모니터링 대시보드</title>
+    <meta name="description" content="QLD(나스닥100 2배 레버리지 ETF) 일일 모니터링 대시보드 — 200일선 괴리율, 주봉 RSI, 매수 신호 상태">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0e17;
+            --bg-surface: rgba(255,255,255,0.03);
+            --border-color: rgba(255,255,255,0.08);
+            --text-primary: #f1f5f9;
+            --text-secondary: #8b9bb4;
+            --status-color: #ffaa00;
+        }
+
+        * { margin:0; padding:0; box-sizing:border-box; font-family:'Inter',system-ui,-apple-system,sans-serif; }
+
+        body {
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .container { width:100%; max-width:1200px; display:flex; flex-direction:column; gap:1.5rem; }
+
+        /* ── Header ── */
+        header {
+            display:flex; justify-content:space-between; align-items:center;
+            padding-bottom:1rem; border-bottom:1px solid var(--border-color);
+            flex-wrap: wrap; gap: 0.5rem;
+        }
+        header h1 { font-size:1.5rem; font-weight:700; letter-spacing:-0.5px; }
+        .last-updated { color:var(--text-secondary); font-size:0.85rem; }
+
+        /* ── Glass Card ── */
+        .glass-card {
+            background: var(--bg-surface);
+            backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 1.5rem;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .glass-card:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(0,0,0,0.3); }
+
+        /* ── Hero Status Card ── */
+        .hero-card {
+            display:flex; flex-direction:column; align-items:center; text-align:center;
+            padding: 3rem 1.5rem; position:relative; overflow:hidden;
+            border-top: 4px solid var(--status-color);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.2), 0 0 40px color-mix(in srgb, var(--status-color) 20%, transparent);
+            animation: pulse-glow 3s infinite alternate;
+        }
+        @keyframes pulse-glow {
+            0% { box-shadow: 0 8px 32px rgba(0,0,0,0.2), 0 0 20px color-mix(in srgb, var(--status-color) 13%, transparent); }
+            100% { box-shadow: 0 8px 32px rgba(0,0,0,0.2), 0 0 50px color-mix(in srgb, var(--status-color) 33%, transparent); }
+        }
+        .hero-emoji { font-size:4rem; margin-bottom:1rem; }
+        .hero-title { font-size:2.5rem; font-weight:800; color:var(--status-color); margin-bottom:0.5rem; letter-spacing:-1px; }
+        .hero-desc { font-size:1.1rem; color:var(--text-secondary); max-width:600px; line-height:1.5; }
+
+        /* ── Metrics Grid ── */
+        .metrics-grid { display:grid; grid-template-columns:repeat(3, 1fr); gap:1.5rem; }
+        .metric-title {
+            color:var(--text-secondary); font-size:0.8rem; font-weight:500;
+            text-transform:uppercase; letter-spacing:1.5px; margin-bottom:0.5rem;
+        }
+        .metric-value { font-size:2rem; font-weight:700; margin-bottom:0.25rem; }
+        .metric-sub { font-size:0.85rem; color:var(--text-secondary); }
+
+        /* ── Progress Bars ── */
+        .progress-section { display:grid; grid-template-columns:repeat(2, 1fr); gap:1.5rem; }
+        .progress-container { margin-top:0.5rem; }
+        .progress-label { display:flex; justify-content:space-between; margin-bottom:0.5rem; font-size:0.85rem; }
+        .progress-label span:first-child { color:var(--text-secondary); }
+        .progress-bar-bg {
+            height:10px; background:rgba(255,255,255,0.08); border-radius:5px;
+            overflow:hidden; position:relative;
+        }
+        .progress-fill {
+            height:100%; border-radius:5px; width:0%;
+            background:linear-gradient(90deg, #ff6b35, #ffaa00);
+            transition: width 1.5s cubic-bezier(0.22,1,0.36,1);
+        }
+        .progress-fill.reached {
+            background:linear-gradient(90deg, #ff3860, #ff6b35);
+        }
+
+        /* ── Chart ── */
+        .chart-container { position:relative; height:350px; width:100%; padding:0.5rem 0; }
+        .chart-container canvas { width:100% !important; height:100% !important; }
+        .chart-legend {
+            display:flex; gap:1.5rem; margin-top:0.75rem; justify-content:center; flex-wrap:wrap;
+        }
+        .chart-legend span { font-size:0.8rem; display:flex; align-items:center; gap:0.4rem; }
+        .legend-dot { width:10px; height:3px; border-radius:2px; display:inline-block; }
+
+        /* ── Accordion ── */
+        .accordion-item {
+            border:1px solid var(--border-color); border-radius:12px; overflow:hidden;
+            background:rgba(255,255,255,0.02); margin-bottom:1rem;
+        }
+        .accordion-header {
+            padding:1.25rem 1.5rem; display:flex; justify-content:space-between; align-items:center;
+            cursor:pointer; font-weight:600; background:rgba(255,255,255,0.01);
+            transition:background 0.2s ease; user-select:none;
+        }
+        .accordion-header:hover { background:rgba(255,255,255,0.05); }
+        .accordion-icon { transition:transform 0.3s ease; }
+        .accordion-content {
+            max-height:0; overflow:hidden; transition:max-height 0.4s ease-out;
+            padding:0 1.5rem; color:var(--text-secondary); line-height:1.7; font-size:0.9rem;
+        }
+        .accordion-item.active .accordion-content {
+            padding:1.25rem 1.5rem; max-height:2000px; border-top:1px solid var(--border-color);
+        }
+        .accordion-item.active .accordion-icon { transform:rotate(180deg); }
+
+        .guide-table { width:100%; border-collapse:collapse; margin:1rem 0; }
+        .guide-table th, .guide-table td {
+            text-align:left; padding:0.75rem; border-bottom:1px solid var(--border-color); font-size:0.85rem;
+        }
+        .guide-table th { color:var(--text-primary); font-weight:600; }
+        .guide-table td { color:var(--text-secondary); }
+        .guide-table tr:last-child td { border-bottom:none; }
+
+        /* ── Footer ── */
+        footer {
+            text-align:center; padding:2rem 0; color:var(--text-secondary);
+            font-size:0.75rem; border-top:1px solid var(--border-color); margin-top:1rem;
+            line-height:1.6;
+        }
+
+        /* ── Responsive ── */
+        @media (max-width: 768px) {
+            body { padding:1rem; }
+            .metrics-grid { grid-template-columns:1fr; }
+            .progress-section { grid-template-columns:1fr; }
+            .hero-title { font-size:2rem; }
+            .hero-emoji { font-size:3rem; }
+            .hero-card { padding:2rem 1rem; }
+            .metric-value { font-size:1.6rem; }
+            header { flex-direction:column; align-items:flex-start; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📊 QLD 모니터링 대시보드</h1>
+            <div class="last-updated">마지막 업데이트: 2026-07-31 00:55 KST</div>
+        </header>
+
+        <!-- 상태 히어로 카드 -->
+        <div class="glass-card hero-card" id="hero-status">
+            <div class="hero-emoji">🟡</div>
+            <div class="hero-title">관심</div>
+            <div class="hero-desc">매수 임계치 근접 — 현금 사전 점검</div>
+        </div>
+
+        <!-- 핵심 지표 카드 -->
+        <div class="metrics-grid">
+            <div class="glass-card" id="metric-close">
+                <div class="metric-title">현재가 (QLD)</div>
+                <div class="metric-value">$82.03</div>
+                <div class="metric-sub">SMA200: $76.56</div>
+            </div>
+            <div class="glass-card" id="metric-deviation">
+                <div class="metric-title">200일선 괴리율</div>
+                <div class="metric-value" style="color:#00d68f">+7.14%</div>
+                <div class="metric-sub">임계: -10% / -18% / -26%</div>
+            </div>
+            <div class="glass-card" id="metric-rsi">
+                <div class="metric-title">주봉 RSI (진행형)</div>
+                <div class="metric-value" style="color:#00d68f">50.4</div>
+                <div class="metric-sub">임계: 48 / 42 / 36</div>
+            </div>
+        </div>
+
+        <!-- 1단계 마진 프로그레스바 -->
+        <div class="progress-section">
+            <div class="glass-card" id="progress-deviation">
+                <div class="metric-title">1단계 진입까지 — 괴리율</div>
+                <div class="progress-container">
+                    <div class="progress-label">
+                        <span>현재: +7.14%</span>
+                        <span>목표: -10% (17.14%p 남음)</span>
+                    </div>
+                    <div class="progress-bar-bg">
+                        <div class="progress-fill" id="dev-bar"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="glass-card" id="progress-rsi">
+                <div class="metric-title">1단계 진입까지 — RSI</div>
+                <div class="progress-container">
+                    <div class="progress-label">
+                        <span>현재: 50.4</span>
+                        <span>목표: 48 (2.4pt 남음)</span>
+                    </div>
+                    <div class="progress-bar-bg">
+                        <div class="progress-fill" id="rsi-bar"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 추세 차트 -->
+        <div class="glass-card" id="chart-section">
+            <div class="metric-title" style="margin-bottom:0.5rem;">30일 트렌드</div>
+            <div class="chart-container">
+                <canvas id="trendChart"></canvas>
+            </div>
+            <div class="chart-legend">
+                <span><span class="legend-dot" style="background:#ffaa00;"></span> 괴리율 (좌축)</span>
+                <span><span class="legend-dot" style="background:#00d68f;"></span> RSI (우축)</span>
+                <span><span class="legend-dot" style="background:rgba(255,56,96,0.5);"></span> 임계선</span>
+            </div>
+        </div>
+
+        <!-- 포트폴리오 가이드 아코디언 -->
+        <div id="guide-section">
+            <div class="accordion-item">
+                <div class="accordion-header" onclick="toggleAccordion(this)">
+                    <span>📋 자산 배분 구조</span>
+                    <svg class="accordion-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                </div>
+                <div class="accordion-content">
+                    <table class="guide-table">
+                        <thead><tr><th>구분</th><th>자산</th><th>비중</th></tr></thead>
+                        <tbody>
+                            <tr><td>🔵 주력</td><td>418660 TIGER 미국나스닥100레버리지(합성)</td><td>60%</td></tr>
+                            <tr><td>🟢 실탄</td><td>486290 TIGER 미국나스닥100타겟데일리커버드콜</td><td>30%</td></tr>
+                            <tr><td>🟡 직투</td><td>DGRO iShares Core Dividend Growth ETF</td><td>10%</td></tr>
+                            <tr><td colspan="3" style="padding-top:1rem;font-weight:600;color:var(--text-primary);">현금성 자산 (30%)</td></tr>
+                            <tr><td>💰 국채</td><td>0046A0 TIGER 미국초단기국채</td><td>80%</td></tr>
+                            <tr><td>💵 현금</td><td>CMA 통장</td><td>20%</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="accordion-item">
+                <div class="accordion-header" onclick="toggleAccordion(this)">
+                    <span>📐 분할 매수 집행 규칙 (40:40:20 DCA)</span>
+                    <svg class="accordion-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                </div>
+                <div class="accordion-content">
+                    <table class="guide-table">
+                        <thead><tr><th>단계</th><th>규모</th><th>실행 방법</th></tr></thead>
+                        <tbody>
+                            <tr><td>1차 매수</td><td>현금의 40%</td><td>1단계 신호 진입 시, 8주간 매주 1/8씩 기계적 매수</td></tr>
+                            <tr><td>2차 매수</td><td>남은 현금의 40%</td><td>8주 경과 후 신호 유지 시, 2차 8주(총 16주) 매수</td></tr>
+                            <tr><td>3차 매수</td><td>잔여 20% + 배당금</td><td>커버드콜/DGRO 배당금을 매월 신규 실탄으로 소진까지 매수</td></tr>
+                        </tbody>
+                    </table>
+                    <p style="margin-top:1rem;font-size:0.85rem;"><strong>자금 인출 순서:</strong> CMA 잔액 우선 → 부족 시 0046A0(단기국채) 매도 → 418660 매수</p>
+                </div>
+            </div>
+
+            <div class="accordion-item">
+                <div class="accordion-header" onclick="toggleAccordion(this)">
+                    <span>🚦 상태 매트릭스 가이드</span>
+                    <svg class="accordion-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                </div>
+                <div class="accordion-content">
+                    <table class="guide-table">
+                        <thead><tr><th>상태</th><th>조건</th><th>설명</th></tr></thead>
+                        <tbody>
+                            <tr><td>🟢 안정</td><td>괴리율 &gt; -5% AND RSI &gt; 55</td><td>평시 관망 구간</td></tr>
+                            <tr><td>🟡 관심</td><td>괴리율 -5%~-10% OR RSI 48~55</td><td>매수 임계치 근접, 현금 점검</td></tr>
+                            <tr><td>🟠 1단계</td><td>RSI ≤ 48 AND 괴리율 ≤ -10%</td><td>분할 매수 시작 (8주 1차)</td></tr>
+                            <tr><td>🔴 2단계</td><td>RSI ≤ 42 AND 괴리율 ≤ -18%</td><td>매력적 매수 (계획 이행)</td></tr>
+                            <tr><td>🟣 3단계</td><td>RSI ≤ 36 AND 괴리율 ≤ -26%</td><td>역사적 바닥 (전력 매수)</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            ⚠️ 이 대시보드는 자동 생성된 참고 자료이며, 투자 조언이 아닙니다.<br>
+            모든 투자 판단의 책임은 본인에게 있습니다.<br>
+            &copy; 2026 QLD Monitoring Dashboard
+        </footer>
+    </div>
+
+    <script>
+        // ── Accordion ──
+        function toggleAccordion(el) {
+            el.parentElement.classList.toggle('active');
+        }
+
+        // ── Progress Bar Animation ──
+        window.addEventListener('load', function() {
+            setTimeout(function() {
+                document.getElementById('dev-bar').style.width = '0.0%';
+                document.getElementById('rsi-bar').style.width = '89.1%';
+            }, 300);
+        });
+
+        // ── Chart ──
+        const chartData = [{"date": "2026-07-31", "close": 82.03, "sma200": 76.56, "deviation": 7.14, "rsi": 50.4, "status": "관심"}];
+
+        function drawChart() {
+            const canvas = document.getElementById('trendChart');
+            if (!canvas || !chartData || chartData.length < 2) return;
+
+            const ctx = canvas.getContext('2d');
+            const dpr = window.devicePixelRatio || 1;
+            const rect = canvas.parentElement.getBoundingClientRect();
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            canvas.style.width = rect.width + 'px';
+            canvas.style.height = rect.height + 'px';
+            ctx.scale(dpr, dpr);
+
+            const W = rect.width;
+            const H = rect.height;
+            const pad = { top:25, right:55, bottom:35, left:55 };
+            const pW = W - pad.left - pad.right;
+            const pH = H - pad.top - pad.bottom;
+            const n = chartData.length;
+
+            const devs = chartData.map(d => d.deviation);
+            const rsis = chartData.map(d => d.rsi);
+            const dates = chartData.map(d => d.date);
+
+            // Y축 범위 (여유 10%)
+            const dMin = Math.min(...devs, -30) - 3;
+            const dMax = Math.max(...devs, 5) + 3;
+            const rMin = Math.min(...rsis, 30) - 3;
+            const rMax = Math.max(...rsis, 80) + 3;
+
+            const xOf = i => pad.left + (i / (n - 1)) * pW;
+            const yDev = v => pad.top + pH - ((v - dMin) / (dMax - dMin)) * pH;
+            const yRsi = v => pad.top + pH - ((v - rMin) / (rMax - rMin)) * pH;
+
+            // 배경 그리드
+            ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+            ctx.lineWidth = 1;
+            for (let i = 0; i < 5; i++) {
+                const y = pad.top + (pH / 4) * i;
+                ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(W - pad.right, y); ctx.stroke();
+            }
+
+            // X축 날짜 라벨
+            ctx.fillStyle = '#64748b';
+            ctx.font = '10px Inter';
+            ctx.textAlign = 'center';
+            const step = Math.max(1, Math.floor(n / 6));
+            for (let i = 0; i < n; i += step) {
+                ctx.fillText(dates[i].substring(5), xOf(i), H - 8);
+            }
+
+            // 괴리율 임계선 (좌축)
+            const devThresh = [-10, -18, -26];
+            const devColors = ['rgba(255,107,53,0.3)', 'rgba(255,56,96,0.3)', 'rgba(184,107,255,0.3)'];
+            ctx.textAlign = 'right';
+            devThresh.forEach((t, idx) => {
+                const y = yDev(t);
+                if (y >= pad.top && y <= H - pad.bottom) {
+                    ctx.beginPath(); ctx.setLineDash([4,4]);
+                    ctx.strokeStyle = devColors[idx]; ctx.lineWidth = 1;
+                    ctx.moveTo(pad.left, y); ctx.lineTo(W - pad.right, y);
+                    ctx.stroke(); ctx.setLineDash([]);
+                    ctx.fillStyle = devColors[idx].replace('0.3','0.8');
+                    ctx.fillText(t + '%', pad.left - 5, y + 3);
+                }
+            });
+
+            // RSI 임계선 (우축)
+            const rsiThresh = [48, 42, 36];
+            const rsiColors = ['rgba(255,107,53,0.3)', 'rgba(255,56,96,0.3)', 'rgba(184,107,255,0.3)'];
+            ctx.textAlign = 'left';
+            rsiThresh.forEach((t, idx) => {
+                const y = yRsi(t);
+                if (y >= pad.top && y <= H - pad.bottom) {
+                    ctx.beginPath(); ctx.setLineDash([4,4]);
+                    ctx.strokeStyle = rsiColors[idx]; ctx.lineWidth = 1;
+                    ctx.moveTo(pad.left, y); ctx.lineTo(W - pad.right, y);
+                    ctx.stroke(); ctx.setLineDash([]);
+                    ctx.fillStyle = rsiColors[idx].replace('0.3','0.8');
+                    ctx.fillText(t, W - pad.right + 5, y + 3);
+                }
+            });
+
+            // 괴리율 라인 (금색)
+            ctx.beginPath();
+            ctx.moveTo(xOf(0), yDev(devs[0]));
+            for (let i = 1; i < n; i++) ctx.lineTo(xOf(i), yDev(devs[i]));
+            ctx.strokeStyle = '#ffaa00'; ctx.lineWidth = 2.5; ctx.setLineDash([]); ctx.stroke();
+
+            // 괴리율 영역 fill
+            ctx.beginPath();
+            ctx.moveTo(xOf(0), yDev(devs[0]));
+            for (let i = 1; i < n; i++) ctx.lineTo(xOf(i), yDev(devs[i]));
+            ctx.lineTo(xOf(n-1), H - pad.bottom); ctx.lineTo(xOf(0), H - pad.bottom); ctx.closePath();
+            ctx.fillStyle = 'rgba(255,170,0,0.08)'; ctx.fill();
+
+            // RSI 라인 (초록)
+            ctx.beginPath();
+            ctx.moveTo(xOf(0), yRsi(rsis[0]));
+            for (let i = 1; i < n; i++) ctx.lineTo(xOf(i), yRsi(rsis[i]));
+            ctx.strokeStyle = '#00d68f'; ctx.lineWidth = 2.5; ctx.stroke();
+
+            // RSI 영역 fill
+            ctx.beginPath();
+            ctx.moveTo(xOf(0), yRsi(rsis[0]));
+            for (let i = 1; i < n; i++) ctx.lineTo(xOf(i), yRsi(rsis[i]));
+            ctx.lineTo(xOf(n-1), H - pad.bottom); ctx.lineTo(xOf(0), H - pad.bottom); ctx.closePath();
+            ctx.fillStyle = 'rgba(0,214,143,0.08)'; ctx.fill();
+
+            // 최신 데이터 포인트 dot
+            ctx.beginPath(); ctx.arc(xOf(n-1), yDev(devs[n-1]), 4, 0, Math.PI*2);
+            ctx.fillStyle = '#ffaa00'; ctx.fill();
+            ctx.beginPath(); ctx.arc(xOf(n-1), yRsi(rsis[n-1]), 4, 0, Math.PI*2);
+            ctx.fillStyle = '#00d68f'; ctx.fill();
+
+            // Y축 라벨 — 좌: 괴리율
+            ctx.textAlign = 'right'; ctx.fillStyle = '#ffaa00'; ctx.font = '10px Inter';
+            for (let i = 0; i <= 4; i++) {
+                const v = dMin + (dMax - dMin) * (i / 4);
+                ctx.fillText(v.toFixed(0) + '%', pad.left - 8, pad.top + pH - (pH / 4) * i + 3);
+            }
+            // Y축 라벨 — 우: RSI
+            ctx.textAlign = 'left'; ctx.fillStyle = '#00d68f';
+            for (let i = 0; i <= 4; i++) {
+                const v = rMin + (rMax - rMin) * (i / 4);
+                ctx.fillText(v.toFixed(0), W - pad.right + 8, pad.top + pH - (pH / 4) * i + 3);
+            }
+        }
+
+        drawChart();
+        window.addEventListener('resize', drawChart);
+    </script>
+</body>
+</html>
