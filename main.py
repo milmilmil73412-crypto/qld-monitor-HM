@@ -711,23 +711,20 @@ def generate_dashboard_html(status: dict, close: float, sma200: float,
             <div class="metric-title">💼 내 포트폴리오 현황</div>
 
             <!-- 종목 추가 폼 -->
-            <div class="pf-add-form">
+            <div class="pf-add-form" style="grid-template-columns:1fr 1fr auto;">
                 <div>
-                    <label>종목명</label>
-                    <input type="text" class="pf-input" id="pf-name" placeholder="예: 삼성전자">
+                    <label>종목 티커 (심볼)</label>
+                    <input type="text" class="pf-input" id="pf-ticker" placeholder="예: 418660, AAPL, CASH(현금)">
                 </div>
                 <div>
-                    <label>수량</label>
+                    <label>보유 수량 (현금은 금액 입력)</label>
                     <input type="number" class="pf-input" id="pf-qty" placeholder="0" min="0" step="any">
                 </div>
-                <div>
-                    <label>단가 (₩ 또는 $)</label>
-                    <input type="number" class="pf-input" id="pf-price" placeholder="0" min="0" step="any">
-                </div>
                 <div style="padding-top:1.1rem;">
-                    <button class="pf-btn" onclick="pfAdd()">+ 추가</button>
+                    <button class="pf-btn" id="pf-add-btn" onclick="pfAdd()">+ 추가</button>
                 </div>
             </div>
+            <div id="pf-status-msg" style="font-size:0.8rem; color:var(--status-color); margin-bottom:1rem;"></div>
 
             <!-- 보유 종목 테이블 -->
             <div id="pf-table-wrap"></div>
@@ -967,18 +964,19 @@ def generate_dashboard_html(status: dict, close: float, sma200: float,
         // ══════════════════════════════════════════════
         // ── Portfolio Manager (localStorage) ──
         // ══════════════════════════════════════════════
-        const PF_KEY = 'qld_portfolio_v1';
+        const PF_KEY = 'qld_portfolio_v2';
+        let usdKrwRate = 1380; // 기본 환율 (API로 업데이트됨)
         const PF_COLORS = [
             '#3b82f6','#00d68f','#ffaa00','#ff6b35','#b86bff',
             '#ff3860','#06b6d4','#f43f5e','#84cc16','#a78bfa',
             '#fb923c','#22d3ee','#e879f9','#facc15','#4ade80'
         ];
         const PF_TARGET = [
-            {{ name:'418660 TIGER 레버리지', pct:42, color:'#3b82f6' }},
-            {{ name:'486290 TIGER 커버드콜', pct:21, color:'#00d68f' }},
-            {{ name:'DGRO 배당성장', pct:7, color:'#ffaa00' }},
-            {{ name:'0046A0 초단기국채', pct:24, color:'#ff6b35' }},
-            {{ name:'CMA 현금', pct:6, color:'#b86bff' }},
+            {{ ticker:'418660', name:'418660 TIGER 레버리지', pct:42, color:'#3b82f6' }},
+            {{ ticker:'486290', name:'486290 TIGER 커버드콜', pct:21, color:'#00d68f' }},
+            {{ ticker:'DGRO', name:'DGRO 배당성장', pct:7, color:'#ffaa00' }},
+            {{ ticker:'0046A0', name:'0046A0 초단기국채', pct:24, color:'#ff6b35' }},
+            {{ ticker:'CASH', name:'CMA 현금', pct:6, color:'#b86bff' }},
         ];
 
         function pfLoad() {{
@@ -987,20 +985,82 @@ def generate_dashboard_html(status: dict, close: float, sma200: float,
         }}
         function pfSave(h) {{ localStorage.setItem(PF_KEY, JSON.stringify(h)); }}
 
-        function pfAdd() {{
-            const name = document.getElementById('pf-name').value.trim();
+        async function fetchYahooInfo(ticker) {{
+            const url = `https://query1.finance.yahoo.com/v8/finance/chart/${{ticker}}`;
+            const proxyUrl = `https://api.allorigins.win/get?url=${{encodeURIComponent(url)}}`;
+            try {{
+                const res = await fetch(proxyUrl);
+                const data = await res.json();
+                const parsed = JSON.parse(data.contents);
+                const meta = parsed.chart.result[0].meta;
+                return {{ price: meta.regularMarketPrice, currency: meta.currency }};
+            }} catch(e) {{
+                return null;
+            }}
+        }}
+
+        async function getLivePrice(ticker) {{
+            let t = ticker.trim().toUpperCase();
+            if (t === 'CASH' || t === '현금' || t === 'CMA') {{
+                return {{ symbol: 'CASH', price: 1, currency: 'KRW' }};
+            }}
+            if (/^\d{{6}}$/.test(t)) t += '.KS';
+            
+            let info = await fetchYahooInfo(t);
+            if (!info && /^\d{{6}}\.KS$/.test(t)) {{
+                t = t.replace('.KS', '.KQ');
+                info = await fetchYahooInfo(t);
+            }}
+            if (!info) {{
+                info = await fetchYahooInfo(ticker.trim().toUpperCase());
+            }}
+            if(info) info.symbol = t;
+            return info;
+        }}
+
+        async function pfAdd() {{
+            const ticker = document.getElementById('pf-ticker').value.trim();
             const qty = parseFloat(document.getElementById('pf-qty').value);
-            const price = parseFloat(document.getElementById('pf-price').value);
-            if (!name || isNaN(qty) || isNaN(price) || qty <= 0 || price <= 0) {{
-                alert('종목명, 수량, 단가를 모두 입력해주세요.');
+            if (!ticker || isNaN(qty) || qty <= 0) {{
+                alert('종목 티커와 수량을 정확히 입력해주세요.');
                 return;
             }}
+            
+            const btn = document.getElementById('pf-add-btn');
+            const msg = document.getElementById('pf-status-msg');
+            btn.disabled = true;
+            btn.innerText = "조회 중...";
+            msg.innerText = "현재가를 실시간으로 불러오는 중입니다 (Yahoo Finance)...";
+            
+            const info = await getLivePrice(ticker);
+            
+            btn.disabled = false;
+            btn.innerText = "+ 추가";
+            msg.innerText = "";
+            
+            if (!info) {{
+                alert(`'${{ticker}}'의 현재가를 찾을 수 없습니다.\n한국 주식은 6자리 숫자(예: 418660), 미국 주식은 티커(예: AAPL)를 입력하세요.\n현금은 'CASH'라고 입력하세요.`);
+                return;
+            }}
+            
             const h = pfLoad();
-            h.push({{ id: Date.now(), name, qty, price }});
+            const existing = h.find(x => x.ticker === info.symbol);
+            if (existing) {{
+                existing.qty += qty;
+                existing.price = info.price;
+                existing.currency = info.currency;
+            }} else {{
+                h.push({{ 
+                    id: Date.now(), 
+                    ticker: info.symbol, 
+                    qty: qty, 
+                    price: info.price,
+                    currency: info.currency
+                }});
+            }}
             pfSave(h);
-            document.getElementById('pf-name').value = '';
+            document.getElementById('pf-ticker').value = '';
             document.getElementById('pf-qty').value = '';
-            document.getElementById('pf-price').value = '';
             pfRender();
         }}
 
@@ -1009,24 +1069,10 @@ def generate_dashboard_html(status: dict, close: float, sma200: float,
             pfRender();
         }}
 
-        function pfEdit(id) {{
-            const h = pfLoad();
-            const item = h.find(x => x.id === id);
-            if (!item) return;
-            const newQty = prompt('수량 수정:', item.qty);
-            if (newQty === null) return;
-            const newPrice = prompt('단가 수정:', item.price);
-            if (newPrice === null) return;
-            item.qty = parseFloat(newQty) || item.qty;
-            item.price = parseFloat(newPrice) || item.price;
-            pfSave(h);
-            pfRender();
-        }}
-
         function pfFmt(n) {{
             if (n >= 1e8) return (n/1e8).toFixed(1) + '억';
             if (n >= 1e4) return (n/1e4).toFixed(0) + '만';
-            return n.toLocaleString();
+            return Math.round(n).toLocaleString();
         }}
 
         function pfRender() {{
@@ -1035,42 +1081,44 @@ def generate_dashboard_html(status: dict, close: float, sma200: float,
             const visuals = document.getElementById('pf-visuals');
 
             if (holdings.length === 0) {{
-                wrap.innerHTML = '<div class="pf-empty">종목을 추가하면 자산 배분 현황이 여기에 표시됩니다.</div>';
+                wrap.innerHTML = '<div class="pf-empty">종목 티커와 수량을 추가하면 현재가를 자동으로 불러와 배분 현황을 보여줍니다.</div>';
                 visuals.style.display = 'none';
                 return;
             }}
 
-            // 평가액 계산
-            let total = 0;
-            holdings.forEach(h => {{ h.value = h.qty * h.price; total += h.value; }});
+            let totalKrw = 0;
+            holdings.forEach(h => {{ 
+                let krwPrice = h.price;
+                if (h.currency === 'USD') krwPrice = h.price * usdKrwRate;
+                h.krwValue = h.qty * krwPrice; 
+                totalKrw += h.krwValue; 
+            }});
 
-            // 테이블 렌더링
             let rows = holdings.map((h, i) => {{
-                const pct = total > 0 ? (h.value / total * 100).toFixed(1) : '0.0';
+                const pct = totalKrw > 0 ? (h.krwValue / totalKrw * 100).toFixed(1) : '0.0';
                 const c = PF_COLORS[i % PF_COLORS.length];
+                const priceDisp = h.currency === 'USD' ? `$${{h.price.toFixed(2)}}` : `₩${{h.price.toLocaleString()}}`;
                 return `<tr>
-                    <td><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${{c}};margin-right:6px;"></span>${{h.name}}</td>
+                    <td><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${{c}};margin-right:6px;"></span>${{h.ticker}}</td>
                     <td style="text-align:right;">${{h.qty.toLocaleString()}}</td>
-                    <td style="text-align:right;">₩${{h.price.toLocaleString()}}</td>
-                    <td style="text-align:right;">₩${{pfFmt(h.value)}}</td>
+                    <td style="text-align:right;">${{h.ticker === 'CASH' ? '-' : priceDisp}}</td>
+                    <td style="text-align:right;">₩${{pfFmt(h.krwValue)}}</td>
                     <td style="text-align:right;color:var(--text-secondary);">${{pct}}%</td>
                     <td style="text-align:right;white-space:nowrap;">
-                        <button class="pf-btn-sm" onclick="pfEdit(${{h.id}})" style="background:rgba(59,130,246,0.15);color:#3b82f6;margin-right:4px;">수정</button>
                         <button class="pf-btn-sm" onclick="pfRemove(${{h.id}})">삭제</button>
                     </td>
                 </tr>`;
             }}).join('');
 
             wrap.innerHTML = `<table class="pf-table">
-                <thead><tr><th>종목</th><th style="text-align:right;">수량</th><th style="text-align:right;">단가</th><th style="text-align:right;">평가액</th><th style="text-align:right;">비중</th><th></th></tr></thead>
+                <thead><tr><th>종목 (티커)</th><th style="text-align:right;">수량</th><th style="text-align:right;">현재가</th><th style="text-align:right;">평가액 (원)</th><th style="text-align:right;">비중</th><th></th></tr></thead>
                 <tbody>${{rows}}
-                <tr class="pf-total-row"><td colspan="3">합계</td><td style="text-align:right;">₩${{pfFmt(total)}}</td><td colspan="2"></td></tr>
+                <tr class="pf-total-row"><td colspan="3">합계</td><td style="text-align:right;">₩${{pfFmt(totalKrw)}}</td><td colspan="2"></td></tr>
                 </tbody></table>`;
 
-            // 시각화
             visuals.style.display = 'grid';
-            pfDrawDonut(holdings, total);
-            pfDrawCompare(holdings, total);
+            pfDrawDonut(holdings, totalKrw);
+            pfDrawCompare(holdings, totalKrw);
         }}
 
         function pfDrawDonut(holdings, total) {{
