@@ -250,7 +250,7 @@ def update_history(date_str: str, close: float, sma200: float,
 
 def build_email_html(status: dict, close: float, sma200: float,
                      deviation: float, rsi: float, rsi_type: str,
-                     margin: dict, now_kst: datetime) -> str:
+                     margin: dict, now_kst: datetime, history: list[dict]) -> str:
     """HTML 형태의 이메일 본문을 생성한다."""
     date_str = now_kst.strftime("%Y년 %m월 %d일 (%a)")
 
@@ -709,7 +709,10 @@ def generate_dashboard_html(status: dict, close: float, sma200: float,
 
         <!-- 내 포트폴리오 현황 -->
         <div class="glass-card pf-section" id="portfolio-section">
-            <div class="metric-title">💼 내 포트폴리오 현황</div>
+            <div class="metric-title" style="display:flex; justify-content:space-between; align-items:center;">
+                <span>💼 내 포트폴리오 현황</span>
+                <button class="pf-btn-sm" onclick="pfSyncSettings()" style="background:transparent; border:1px solid #475569; color:#94a3b8; font-size:0.8rem; border-radius:4px; padding:4px 8px; cursor:pointer;">기기 연동 설정</button>
+            </div>
 
             <!-- 종목 추가 폼 -->
             <div class="pf-add-form" style="grid-template-columns:1fr 1fr auto;">
@@ -1015,7 +1018,7 @@ def generate_dashboard_html(status: dict, close: float, sma200: float,
                 let currency = 'KRW';
                 if (data.stockExchangeType && data.stockExchangeType.nationType !== 'KOR') currency = 'USD';
                 if (data.currencyType) currency = data.currencyType.code;
-                return {{ price, currency }};
+                return {{ price, currency, name: data.stockName || ticker }};
             }}
             return null;
         }}
@@ -1025,7 +1028,7 @@ def generate_dashboard_html(status: dict, close: float, sma200: float,
             const data = await fetchViaProxy(url);
             if (data && data.chart && data.chart.result) {{
                 const meta = data.chart.result[0].meta;
-                return {{ price: meta.regularMarketPrice || meta.chartPreviousClose, currency: meta.currency }};
+                return {{ price: meta.regularMarketPrice || meta.chartPreviousClose, currency: meta.currency, name: meta.shortName || meta.longName || ticker }};
             }}
             return null;
         }}
@@ -1033,7 +1036,11 @@ def generate_dashboard_html(status: dict, close: float, sma200: float,
         async function getLivePriceSilent(ticker) {{
             let t = ticker.trim().toUpperCase();
             if (t === 'CASH' || t === '현금' || t === 'CMA') return null;
-            if (SERVER_PRICES[t]) return {{ symbol: t, price: SERVER_PRICES[t], currency: (t === 'DGRO' || t === 'AAPL' || t === 'QQQ' || t === 'SPY') ? 'USD' : 'KRW' }};
+            if (SERVER_PRICES[t]) {{
+                const target = PF_TARGET.find(x => x.ticker === t);
+                const name = target ? target.name.replace(t + ' ', '') : t;
+                return {{ symbol: t, price: SERVER_PRICES[t], currency: (t === 'DGRO' || t === 'AAPL' || t === 'QQQ' || t === 'SPY') ? 'USD' : 'KRW', name: name }};
+            }}
 
             let naverInfo = await fetchNaverInfo(t);
             if (naverInfo) {{ naverInfo.symbol = t; return naverInfo; }}
@@ -1053,6 +1060,11 @@ def generate_dashboard_html(status: dict, close: float, sma200: float,
 
         // 페이지 로드 시 백그라운드로 가격 및 환율 업데이트
         async function pfInitAutoUpdate() {{
+            // 만약 토큰이 있다면 먼저 GitHub에서 최신 데이터를 당겨온다
+            if (localStorage.getItem('gh_token')) {{
+                await pfSyncPull();
+            }}
+            
             pfRender();
             
             try {{
@@ -1066,13 +1078,14 @@ def generate_dashboard_html(status: dict, close: float, sma200: float,
                     
                     const live = await getLivePriceSilent(h.ticker);
                     if (live && live.price) {{
+                        if (h.price !== live.price) updated = true; // 실제 가격 변동시에만
                         h.price = live.price;
                         if (live.currency) h.currency = live.currency;
-                        updated = true;
+                        if (live.name) h.name = live.name;
                     }}
                 }}
                 if (updated) {{
-                    pfSave(holdings);
+                    pfSave(holdings); // This will also push to GitHub if token exists
                     pfRender();
                 }}
             }} catch(e) {{}}
@@ -1081,11 +1094,13 @@ def generate_dashboard_html(status: dict, close: float, sma200: float,
         async function getLivePrice(ticker) {{
             let t = ticker.trim().toUpperCase();
             if (t === 'CASH' || t === '현금' || t === 'CMA') {{
-                return {{ symbol: 'CASH', price: 1, currency: 'KRW' }};
+                return {{ symbol: 'CASH', price: 1, currency: 'KRW', name: '현금' }};
             }}
             
             if (SERVER_PRICES[t]) {{
-                return {{ symbol: t, price: SERVER_PRICES[t], currency: (t === 'DGRO' || t === 'AAPL' || t === 'QQQ' || t === 'SPY') ? 'USD' : 'KRW' }};
+                const target = PF_TARGET.find(x => x.ticker === t);
+                const name = target ? target.name.replace(t + ' ', '') : t;
+                return {{ symbol: t, price: SERVER_PRICES[t], currency: (t === 'DGRO' || t === 'AAPL' || t === 'QQQ' || t === 'SPY') ? 'USD' : 'KRW', name: name }};
             }}
 
             // 1. 네이버 금융 시도 (우회 차단이 적고 한국/미국 주식 모두 지원)
@@ -1114,8 +1129,9 @@ def generate_dashboard_html(status: dict, close: float, sma200: float,
             // 3. 모두 실패 시 수동 입력 창
             const manualPrice = prompt(`'${{t}}'의 현재가를 자동으로 불러오지 못했습니다. (서버 보안 차단)\n보유하신 1주당 단가를 직접 입력해주세요:`);
             if (manualPrice && !isNaN(parseFloat(manualPrice))) {{
+                const manualName = prompt(`'${{t}}'의 종목명을 입력해주세요 (예: 삼성전자):`, t);
                 const guessedCurrency = /^[A-Z]+$/.test(t) ? 'USD' : 'KRW';
-                return {{ symbol: t, price: parseFloat(manualPrice), currency: guessedCurrency }};
+                return {{ symbol: t, price: parseFloat(manualPrice), currency: guessedCurrency, name: manualName || t }};
             }}
             return null;
         }}
@@ -1148,13 +1164,15 @@ def generate_dashboard_html(status: dict, close: float, sma200: float,
                 existing.qty += qty;
                 existing.price = info.price;
                 existing.currency = info.currency;
+                if (info.name) existing.name = info.name;
             }} else {{
                 h.push({{ 
                     id: Date.now(), 
                     ticker: info.symbol, 
                     qty: qty, 
                     price: info.price,
-                    currency: info.currency
+                    currency: info.currency,
+                    name: info.name || info.symbol
                 }});
             }}
             pfSave(h);
@@ -1197,8 +1215,12 @@ def generate_dashboard_html(status: dict, close: float, sma200: float,
                 const pct = totalKrw > 0 ? (h.krwValue / totalKrw * 100).toFixed(1) : '0.0';
                 const c = PF_COLORS[i % PF_COLORS.length];
                 const priceDisp = h.currency === 'USD' ? `$${{h.price.toFixed(2)}}` : `₩${{h.price.toLocaleString()}}`;
+                
+                let dispName = h.name && h.name !== h.ticker ? `${{h.name}} (${{h.ticker}})` : h.ticker;
+                if (h.ticker === 'CASH') dispName = '현금 (CMA)';
+
                 return `<tr>
-                    <td><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${{c}};margin-right:6px;"></span>${{h.ticker}}</td>
+                    <td><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${{c}};margin-right:6px;"></span>${{dispName}}</td>
                     <td style="text-align:right;">${{h.qty.toLocaleString()}}</td>
                     <td style="text-align:right;">${{h.ticker === 'CASH' ? '-' : priceDisp}}</td>
                     <td style="text-align:right;">₩${{pfFmt(h.krwValue)}}</td>
@@ -1377,7 +1399,7 @@ def main():
     else:
         subject = f"[진행형] QLD 데일리 모니터링 {status['emoji']} {status['name']}"
 
-    email_html = build_email_html(status, close, sma200, deviation, rsi, rsi_type, margin, now_kst)
+    email_html = build_email_html(status, close, sma200, deviation, rsi, rsi_type, margin, now_kst, history)
     send_email(subject, email_html, dry_run=args.dry_run)
 
     # ── 6. HTML 대시보드 생성 ──

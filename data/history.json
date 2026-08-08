@@ -1,10 +1,18 @@
 [
   {
     "date": "2026-07-31",
-    "close": 82.25,
+    "close": 82.26,
     "sma200": 76.57,
-    "deviation": 7.42,
+    "deviation": 7.44,
     "rsi": 50.6,
     "status": "관심"
+  },
+  {
+    "date": "2026-08-08",
+    "close": 92.21,
+    "sma200": 77.18,
+    "deviation": 19.47,
+    "rsi": 59.0,
+    "status": "안정"
   }
 ]
