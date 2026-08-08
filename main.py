@@ -275,34 +275,34 @@ def build_email_html(status: dict, close: float, sma200: float,
 
     import json
     import urllib.parse
-    chart_config = {{
+    chart_config = {
         'type': 'line',
-        'data': {{
+        'data': {
             'labels': labels,
             'datasets': [
-                {{'label': '200일선 괴리율 (%)', 'data': dev_data, 'borderColor': '#ffaa00', 'borderWidth': 2, 'fill': False, 'yAxisID': 'y-dev', 'pointRadius': 0}},
-                {{'label': '주봉 RSI (pt)', 'data': rsi_data, 'borderColor': '#00d68f', 'borderWidth': 2, 'fill': False, 'yAxisID': 'y-rsi', 'pointRadius': 0}}
+                {'label': '200일선 괴리율 (%)', 'data': dev_data, 'borderColor': '#ffaa00', 'borderWidth': 2, 'fill': False, 'yAxisID': 'y-dev', 'pointRadius': 0},
+                {'label': '주봉 RSI (pt)', 'data': rsi_data, 'borderColor': '#00d68f', 'borderWidth': 2, 'fill': False, 'yAxisID': 'y-rsi', 'pointRadius': 0}
             ]
-        }},
-        'options': {{
+        },
+        'options': {
             'backgroundColor': '#111827',
-            'legend': {{ 'labels': {{ 'fontColor': '#94a3b8' }} }},
-            'title': {{ 'display': True, 'text': '최근 30일 모니터링 트렌드', 'fontColor': '#e2e8f0', 'fontSize': 14 }},
-            'scales': {{
+            'legend': { 'labels': { 'fontColor': '#94a3b8' } },
+            'title': { 'display': True, 'text': '최근 30일 모니터링 트렌드', 'fontColor': '#e2e8f0', 'fontSize': 14 },
+            'scales': {
                 'yAxes': [
-                    {{'id': 'y-dev', 'position': 'left', 'gridLines': {{'color': '#1e293b'}}, 'ticks': {{'fontColor': '#ffaa00'}}}},
-                    {{'id': 'y-rsi', 'position': 'right', 'gridLines': {{'display': False}}, 'ticks': {{'fontColor': '#00d68f'}}}}
+                    {'id': 'y-dev', 'position': 'left', 'gridLines': {'color': '#1e293b'}, 'ticks': {'fontColor': '#ffaa00'}},
+                    {'id': 'y-rsi', 'position': 'right', 'gridLines': {'display': False}, 'ticks': {'fontColor': '#00d68f'}}
                 ],
-                'xAxes': [{{'gridLines': {{'color': '#1e293b'}}, 'ticks': {{'fontColor': '#94a3b8'}}}}],
-            }},
-            'annotation': {{
+                'xAxes': [{'gridLines': {'color': '#1e293b'}, 'ticks': {'fontColor': '#94a3b8'}}],
+            },
+            'annotation': {
                 'annotations': [
-                    {{'type': 'line', 'mode': 'horizontal', 'scaleID': 'y-dev', 'value': -10, 'borderColor': 'rgba(255,56,96,0.8)', 'borderWidth': 1, 'borderDash': [4, 4]}},
-                    {{'type': 'line', 'mode': 'horizontal', 'scaleID': 'y-rsi', 'value': 48, 'borderColor': 'rgba(255,56,96,0.8)', 'borderWidth': 1, 'borderDash': [4, 4]}}
+                    {'type': 'line', 'mode': 'horizontal', 'scaleID': 'y-dev', 'value': -10, 'borderColor': 'rgba(255,56,96,0.8)', 'borderWidth': 1, 'borderDash': [4, 4]},
+                    {'type': 'line', 'mode': 'horizontal', 'scaleID': 'y-rsi', 'value': 48, 'borderColor': 'rgba(255,56,96,0.8)', 'borderWidth': 1, 'borderDash': [4, 4]}
                 ]
-            }}
-        }}
-    }}
+            }
+        }
+    }
     chart_url = "https://quickchart.io/chart?c=" + urllib.parse.quote(json.dumps(chart_config)) + "&w=600&h=300&bkg=111827" if recent else ""
     chart_html = f'<div style="text-align:center; margin: 20px 0;"><img src="{{chart_url}}" alt="Trend Chart" style="max-width:100%; border-radius:12px; border:1px solid #1e293b;"></div>' if chart_url else ''
 
