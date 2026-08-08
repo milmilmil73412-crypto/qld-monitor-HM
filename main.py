@@ -267,6 +267,45 @@ def build_email_html(status: dict, close: float, sma200: float,
     dev_color = "#ff3860" if deviation < -10 else ("#ffaa00" if deviation < -5 else "#00d68f")
     rsi_color = "#ff3860" if rsi < 42 else ("#ffaa00" if rsi < 48 else "#00d68f")
 
+    # 최근 30일 데이터 추출 및 퀵차트 URL 생성
+    recent = history[-30:] if history else []
+    labels = [datetime.strptime(r["date"], "%Y-%m-%d").strftime("%m/%d") for r in recent] if recent else []
+    dev_data = [r.get("dev", 0) for r in recent]
+    rsi_data = [r.get("rsi", 0) for r in recent]
+
+    import json
+    import urllib.parse
+    chart_config = {{
+        'type': 'line',
+        'data': {{
+            'labels': labels,
+            'datasets': [
+                {{'label': '200일선 괴리율 (%)', 'data': dev_data, 'borderColor': '#ffaa00', 'borderWidth': 2, 'fill': False, 'yAxisID': 'y-dev', 'pointRadius': 0}},
+                {{'label': '주봉 RSI (pt)', 'data': rsi_data, 'borderColor': '#00d68f', 'borderWidth': 2, 'fill': False, 'yAxisID': 'y-rsi', 'pointRadius': 0}}
+            ]
+        }},
+        'options': {{
+            'backgroundColor': '#111827',
+            'legend': {{ 'labels': {{ 'fontColor': '#94a3b8' }} }},
+            'title': {{ 'display': True, 'text': '최근 30일 모니터링 트렌드', 'fontColor': '#e2e8f0', 'fontSize': 14 }},
+            'scales': {{
+                'yAxes': [
+                    {{'id': 'y-dev', 'position': 'left', 'gridLines': {{'color': '#1e293b'}}, 'ticks': {{'fontColor': '#ffaa00'}}}},
+                    {{'id': 'y-rsi', 'position': 'right', 'gridLines': {{'display': False}}, 'ticks': {{'fontColor': '#00d68f'}}}}
+                ],
+                'xAxes': [{{'gridLines': {{'color': '#1e293b'}}, 'ticks': {{'fontColor': '#94a3b8'}}}}],
+            }},
+            'annotation': {{
+                'annotations': [
+                    {{'type': 'line', 'mode': 'horizontal', 'scaleID': 'y-dev', 'value': -10, 'borderColor': 'rgba(255,56,96,0.8)', 'borderWidth': 1, 'borderDash': [4, 4]}},
+                    {{'type': 'line', 'mode': 'horizontal', 'scaleID': 'y-rsi', 'value': 48, 'borderColor': 'rgba(255,56,96,0.8)', 'borderWidth': 1, 'borderDash': [4, 4]}}
+                ]
+            }}
+        }}
+    }}
+    chart_url = "https://quickchart.io/chart?c=" + urllib.parse.quote(json.dumps(chart_config)) + "&w=600&h=300&bkg=111827" if recent else ""
+    chart_html = f'<div style="text-align:center; margin: 20px 0;"><img src="{{chart_url}}" alt="Trend Chart" style="max-width:100%; border-radius:12px; border:1px solid #1e293b;"></div>' if chart_url else ''
+
     return f"""<!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"></head>
@@ -276,15 +315,17 @@ def build_email_html(status: dict, close: float, sma200: float,
 <!-- Header -->
 <div style="text-align:center;padding:20px 0;border-bottom:1px solid #1e293b;">
   <h1 style="color:#e2e8f0;font-size:20px;margin:0;">📊 QLD 데일리 모니터링</h1>
-  <p style="color:#64748b;font-size:13px;margin:5px 0 0;">{date_str} | {rsi_type} 주봉 RSI</p>
+  <p style="color:#64748b;font-size:13px;margin:5px 0 0;">{{date_str}} | {{rsi_type}} 주봉 RSI</p>
 </div>
 
 <!-- 상태 카드 -->
-<div style="margin:20px 0;padding:24px;border-radius:16px;background:{bg};border:1px solid {status['color']}44;text-align:center;">
-  <div style="font-size:48px;margin-bottom:8px;">{status['emoji']}</div>
-  <div style="font-size:28px;font-weight:700;color:{status['color']};margin-bottom:4px;">{status['name']}</div>
-  <div style="font-size:14px;color:#94a3b8;">{status['description']}</div>
+<div style="margin:20px 0;padding:24px;border-radius:16px;background:{{bg}};border:1px solid {{status['color']}}44;text-align:center;">
+  <div style="font-size:48px;margin-bottom:8px;">{{status['emoji']}}</div>
+  <div style="font-size:28px;font-weight:700;color:{{status['color']}};margin-bottom:4px;">{{status['name']}}</div>
+  <div style="font-size:14px;color:#94a3b8;">{{status['description']}}</div>
 </div>
+
+{{chart_html}}
 
 <!-- 지표 카드 -->
 <table style="width:100%;border-collapse:separate;border-spacing:8px;">
