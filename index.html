@@ -236,7 +236,7 @@
     <div class="container">
         <header>
             <h1>📊 QLD 모니터링 대시보드</h1>
-            <div class="last-updated">마지막 업데이트: 2026-08-08 21:31 KST</div>
+            <div class="last-updated">마지막 업데이트: 2026-08-10 08:27 KST</div>
         </header>
 
         <!-- 상태 히어로 카드 -->
@@ -430,7 +430,7 @@
         });
 
         // ── Chart ──
-        const chartData = [{"date": "2026-07-31", "close": 82.26, "sma200": 76.57, "deviation": 7.44, "rsi": 50.6, "status": "관심"}, {"date": "2026-08-08", "close": 92.21, "sma200": 77.18, "deviation": 19.47, "rsi": 59.0, "status": "안정"}];
+        const chartData = [{"date": "2026-07-31", "close": 82.26, "sma200": 76.57, "deviation": 7.44, "rsi": 50.6, "status": "관심"}, {"date": "2026-08-08", "close": 92.21, "sma200": 77.18, "deviation": 19.47, "rsi": 59.0, "status": "안정"}, {"date": "2026-08-10", "close": 92.21, "sma200": 77.18, "deviation": 19.47, "rsi": 59.0, "status": "안정"}];
 
         function drawChart() {
             const canvas = document.getElementById('trendChart');
@@ -568,7 +568,7 @@
         // ── Portfolio Manager (localStorage) ──
         // ══════════════════════════════════════════════
         const PF_KEY = 'qld_portfolio_v2';
-        const SERVER_PRICES = {"USDKRW": 1407.449951171875, "418660": 42105.0, "486290": 10885.0, "DGRO": 79.47000122070312, "0046A0": 9790.0};
+        const SERVER_PRICES = {"USDKRW": 1409.699951171875, "418660": 42105.0, "486290": 10885.0, "DGRO": 79.47000122070312, "0046A0": 9790.0};
         let usdKrwRate = SERVER_PRICES["USDKRW"] || 1380; // Python에서 수집한 환율
 
         const PF_COLORS = [
