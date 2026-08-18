@@ -236,7 +236,7 @@
     <div class="container">
         <header>
             <h1>📊 QLD 모니터링 대시보드</h1>
-            <div class="last-updated">마지막 업데이트: 2026-08-17 08:15 KST</div>
+            <div class="last-updated">마지막 업데이트: 2026-08-19 08:17 KST</div>
         </header>
 
         <!-- 상태 히어로 카드 -->
@@ -250,17 +250,17 @@
         <div class="metrics-grid">
             <div class="glass-card" id="metric-close">
                 <div class="metric-title">현재가 (QLD)</div>
-                <div class="metric-value">$94.15</div>
-                <div class="metric-sub">SMA200: $77.72</div>
+                <div class="metric-value">$90.65</div>
+                <div class="metric-sub">SMA200: $77.88</div>
             </div>
             <div class="glass-card" id="metric-deviation">
                 <div class="metric-title">200일선 괴리율</div>
-                <div class="metric-value" style="color:#00d68f">+21.15%</div>
+                <div class="metric-value" style="color:#00d68f">+16.40%</div>
                 <div class="metric-sub">임계: -10% / -18% / -26%</div>
             </div>
             <div class="glass-card" id="metric-rsi">
-                <div class="metric-title">주봉 RSI (확정)</div>
-                <div class="metric-value" style="color:#00d68f">60.1</div>
+                <div class="metric-title">주봉 RSI (진행형)</div>
+                <div class="metric-value" style="color:#00d68f">56.4</div>
                 <div class="metric-sub">임계: 48 / 42 / 36</div>
             </div>
         </div>
@@ -271,8 +271,8 @@
                 <div class="metric-title">1단계 진입까지 — 괴리율</div>
                 <div class="progress-container">
                     <div class="progress-label">
-                        <span>현재: +21.15%</span>
-                        <span>목표: -10% (31.15%p 남음)</span>
+                        <span>현재: +16.40%</span>
+                        <span>목표: -10% (26.40%p 남음)</span>
                     </div>
                     <div class="progress-bar-bg">
                         <div class="progress-fill" id="dev-bar"></div>
@@ -283,8 +283,8 @@
                 <div class="metric-title">1단계 진입까지 — RSI</div>
                 <div class="progress-container">
                     <div class="progress-label">
-                        <span>현재: 60.1</span>
-                        <span>목표: 48 (12.1pt 남음)</span>
+                        <span>현재: 56.4</span>
+                        <span>목표: 48 (8.4pt 남음)</span>
                     </div>
                     <div class="progress-bar-bg">
                         <div class="progress-fill" id="rsi-bar"></div>
@@ -425,12 +425,12 @@
         window.addEventListener('load', function() {
             setTimeout(function() {
                 document.getElementById('dev-bar').style.width = '0.0%';
-                document.getElementById('rsi-bar').style.width = '45.0%';
+                document.getElementById('rsi-bar').style.width = '61.8%';
             }, 300);
         });
 
         // ── Chart ──
-        const chartData = [{"date": "2026-07-31", "close": 82.26, "sma200": 76.57, "deviation": 7.44, "rsi": 50.6, "status": "관심"}, {"date": "2026-08-08", "close": 92.21, "sma200": 77.18, "deviation": 19.47, "rsi": 59.0, "status": "안정"}, {"date": "2026-08-10", "close": 92.21, "sma200": 77.18, "deviation": 19.47, "rsi": 59.0, "status": "안정"}, {"date": "2026-08-11", "close": 91.63, "sma200": 77.29, "deviation": 18.56, "rsi": 58.4, "status": "안정"}, {"date": "2026-08-12", "close": 90.98, "sma200": 77.4, "deviation": 17.55, "rsi": 57.4, "status": "안정"}, {"date": "2026-08-13", "close": 92.32, "sma200": 77.51, "deviation": 19.11, "rsi": 58.8, "status": "안정"}, {"date": "2026-08-14", "close": 94.43, "sma200": 77.62, "deviation": 21.66, "rsi": 60.3, "status": "안정"}, {"date": "2026-08-15", "close": 94.15, "sma200": 77.72, "deviation": 21.15, "rsi": 60.1, "status": "안정"}, {"date": "2026-08-17", "close": 94.15, "sma200": 77.72, "deviation": 21.15, "rsi": 60.1, "status": "안정"}];
+        const chartData = [{"date": "2026-07-31", "close": 82.26, "sma200": 76.57, "deviation": 7.44, "rsi": 50.6, "status": "관심"}, {"date": "2026-08-08", "close": 92.21, "sma200": 77.18, "deviation": 19.47, "rsi": 59.0, "status": "안정"}, {"date": "2026-08-10", "close": 92.21, "sma200": 77.18, "deviation": 19.47, "rsi": 59.0, "status": "안정"}, {"date": "2026-08-11", "close": 91.63, "sma200": 77.29, "deviation": 18.56, "rsi": 58.4, "status": "안정"}, {"date": "2026-08-12", "close": 90.98, "sma200": 77.4, "deviation": 17.55, "rsi": 57.4, "status": "안정"}, {"date": "2026-08-13", "close": 92.32, "sma200": 77.51, "deviation": 19.11, "rsi": 58.8, "status": "안정"}, {"date": "2026-08-14", "close": 94.43, "sma200": 77.62, "deviation": 21.66, "rsi": 60.3, "status": "안정"}, {"date": "2026-08-15", "close": 94.15, "sma200": 77.72, "deviation": 21.15, "rsi": 60.1, "status": "안정"}, {"date": "2026-08-17", "close": 94.15, "sma200": 77.72, "deviation": 21.15, "rsi": 60.1, "status": "안정"}, {"date": "2026-08-19", "close": 90.65, "sma200": 77.88, "deviation": 16.4, "rsi": 56.4, "status": "안정"}];
 
         function drawChart() {
             const canvas = document.getElementById('trendChart');
@@ -568,7 +568,7 @@
         // ── Portfolio Manager (localStorage) ──
         // ══════════════════════════════════════════════
         const PF_KEY = 'qld_portfolio_v2';
-        const SERVER_PRICES = {"USDKRW": 1416.47998046875, "418660": 43875.0, "486290": 11080.0, "DGRO": 79.83000183105469, "0046A0": 9805.0};
+        const SERVER_PRICES = {"USDKRW": 1412.3199462890625, "418660": 42590.0, "486290": 10935.0, "DGRO": 79.68000030517578, "0046A0": 9770.0};
         let usdKrwRate = SERVER_PRICES["USDKRW"] || 1380; // Python에서 수집한 환율
 
         const PF_COLORS = [
