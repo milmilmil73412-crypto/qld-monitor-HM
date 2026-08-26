@@ -160,17 +160,17 @@ def determine_status(deviation: float, rsi: float) -> dict:
       1단계: RSI ≤ 48 AND 괴리율 ≤ -10%
     
     비신호:
-      관심: 괴리율 -5%~-10% OR RSI 48~55
       안정: 괴리율 > -5% AND RSI > 55
+      관심: 그 외 나머지 전부 (안정도 신호도 아닌 애매한 구간 포함)
     """
     for level in STATUS_LEVELS:
         if rsi <= level["rsi_threshold"] and deviation <= level["deviation_threshold"]:
             return level
 
-    if (-10 <= deviation <= -5) or (48 <= rsi <= 55):
-        return STATUS_WATCH
+    if deviation > -5 and rsi > 55:
+        return STATUS_STABLE
 
-    return STATUS_STABLE
+    return STATUS_WATCH
 
 
 def calc_margin_to_stage1(deviation: float, rsi: float) -> dict:
@@ -270,7 +270,7 @@ def build_email_html(status: dict, close: float, sma200: float,
     # 최근 30일 데이터 추출 및 퀵차트 URL 생성
     recent = history[-30:] if history else []
     labels = [datetime.strptime(r["date"], "%Y-%m-%d").strftime("%m/%d") for r in recent] if recent else []
-    dev_data = [r.get("dev", 0) for r in recent]
+    dev_data = [r.get("deviation", 0) for r in recent]
     rsi_data = [r.get("rsi", 0) for r in recent]
 
     import json
@@ -748,6 +748,18 @@ def generate_dashboard_html(status: dict, close: float, sma200: float,
             </div>
         </div>
 
+        <!-- QLD 가격 추이 -->
+        <div class="glass-card" id="price-chart-section">
+            <div class="metric-title" style="margin-bottom:0.5rem;">QLD 종가 추이 (30일)</div>
+            <div class="chart-container">
+                <canvas id="priceChart"></canvas>
+            </div>
+            <div class="chart-legend">
+                <span><span class="legend-dot" style="background:#3b82f6;"></span> 종가</span>
+                <span><span class="legend-dot" style="background:rgba(148,163,184,0.7);"></span> 200일선</span>
+            </div>
+        </div>
+
         <!-- 내 포트폴리오 현황 -->
         <div class="glass-card pf-section" id="portfolio-section">
             <div class="metric-title" style="display:flex; justify-content:space-between; align-items:center;">
@@ -840,7 +852,7 @@ def generate_dashboard_html(status: dict, close: float, sma200: float,
                         <thead><tr><th>상태</th><th>조건</th><th>설명</th></tr></thead>
                         <tbody>
                             <tr><td>🟢 안정</td><td>괴리율 &gt; -5% AND RSI &gt; 55</td><td>평시 관망 구간</td></tr>
-                            <tr><td>🟡 관심</td><td>괴리율 -5%~-10% OR RSI 48~55</td><td>매수 임계치 근접, 현금 점검</td></tr>
+                            <tr><td>🟡 관심</td><td>안정·1단계 조건에 모두 해당하지 않는 나머지</td><td>매수 임계치 근접, 현금 점검</td></tr>
                             <tr><td>🟠 1단계</td><td>RSI ≤ 48 AND 괴리율 ≤ -10%</td><td>분할 매수 시작 (8주 1차)</td></tr>
                             <tr><td>🔴 2단계</td><td>RSI ≤ 42 AND 괴리율 ≤ -18%</td><td>매력적 매수 (계획 이행)</td></tr>
                             <tr><td>🟣 3단계</td><td>RSI ≤ 36 AND 괴리율 ≤ -26%</td><td>역사적 바닥 (전력 매수)</td></tr>
@@ -1003,8 +1015,89 @@ def generate_dashboard_html(status: dict, close: float, sma200: float,
             }}
         }}
 
+        function drawPriceChart() {{
+            const canvas = document.getElementById('priceChart');
+            if (!canvas || !chartData || chartData.length < 2) return;
+
+            const ctx = canvas.getContext('2d');
+            const dpr = window.devicePixelRatio || 1;
+            const rect = canvas.parentElement.getBoundingClientRect();
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            canvas.style.width = rect.width + 'px';
+            canvas.style.height = rect.height + 'px';
+            ctx.scale(dpr, dpr);
+
+            const W = rect.width;
+            const H = rect.height;
+            const pad = {{ top:25, right:20, bottom:35, left:55 }};
+            const pW = W - pad.left - pad.right;
+            const pH = H - pad.top - pad.bottom;
+            const n = chartData.length;
+
+            const closes = chartData.map(d => d.close);
+            const smas = chartData.map(d => d.sma200);
+            const dates = chartData.map(d => d.date);
+
+            const pMin = Math.min(...closes, ...smas) * 0.97;
+            const pMax = Math.max(...closes, ...smas) * 1.03;
+
+            const xOf = i => pad.left + (i / (n - 1)) * pW;
+            const yOf = v => pad.top + pH - ((v - pMin) / (pMax - pMin)) * pH;
+
+            // 배경 그리드
+            ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+            ctx.lineWidth = 1;
+            for (let i = 0; i < 5; i++) {{
+                const y = pad.top + (pH / 4) * i;
+                ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(W - pad.right, y); ctx.stroke();
+            }}
+
+            // X축 날짜 라벨
+            ctx.fillStyle = '#64748b';
+            ctx.font = '10px Inter';
+            ctx.textAlign = 'center';
+            const step = Math.max(1, Math.floor(n / 6));
+            for (let i = 0; i < n; i += step) {{
+                ctx.fillText(dates[i].substring(5), xOf(i), H - 8);
+            }}
+
+            // 200일선 (점선)
+            ctx.beginPath();
+            ctx.setLineDash([4, 4]);
+            ctx.moveTo(xOf(0), yOf(smas[0]));
+            for (let i = 1; i < n; i++) ctx.lineTo(xOf(i), yOf(smas[i]));
+            ctx.strokeStyle = 'rgba(148,163,184,0.7)'; ctx.lineWidth = 1.5; ctx.stroke();
+            ctx.setLineDash([]);
+
+            // 종가 라인 + 영역 fill
+            ctx.beginPath();
+            ctx.moveTo(xOf(0), yOf(closes[0]));
+            for (let i = 1; i < n; i++) ctx.lineTo(xOf(i), yOf(closes[i]));
+            ctx.lineTo(xOf(n-1), H - pad.bottom); ctx.lineTo(xOf(0), H - pad.bottom); ctx.closePath();
+            ctx.fillStyle = 'rgba(59,130,246,0.08)'; ctx.fill();
+
+            ctx.beginPath();
+            ctx.moveTo(xOf(0), yOf(closes[0]));
+            for (let i = 1; i < n; i++) ctx.lineTo(xOf(i), yOf(closes[i]));
+            ctx.strokeStyle = '#3b82f6'; ctx.lineWidth = 2.5; ctx.stroke();
+
+            // 최신 데이터 포인트 dot
+            ctx.beginPath(); ctx.arc(xOf(n-1), yOf(closes[n-1]), 4, 0, Math.PI*2);
+            ctx.fillStyle = '#3b82f6'; ctx.fill();
+
+            // Y축 라벨 (가격)
+            ctx.textAlign = 'right'; ctx.fillStyle = '#8b9bb4'; ctx.font = '10px Inter';
+            for (let i = 0; i <= 4; i++) {{
+                const v = pMin + (pMax - pMin) * (i / 4);
+                ctx.fillText('$' + v.toFixed(0), pad.left - 8, pad.top + pH - (pH / 4) * i + 3);
+            }}
+        }}
+
         drawChart();
+        drawPriceChart();
         window.addEventListener('resize', drawChart);
+        window.addEventListener('resize', drawPriceChart);
 
         // ══════════════════════════════════════════════
         // ── Portfolio Manager (localStorage) ──
