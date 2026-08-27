@@ -236,7 +236,7 @@
     <div class="container">
         <header>
             <h1>📊 QLD 모니터링 대시보드</h1>
-            <div class="last-updated">마지막 업데이트: 2026-08-26 08:21 KST</div>
+            <div class="last-updated">마지막 업데이트: 2026-08-27 13:12 KST</div>
         </header>
 
         <!-- 상태 히어로 카드 -->
@@ -250,17 +250,17 @@
         <div class="metrics-grid">
             <div class="glass-card" id="metric-close">
                 <div class="metric-title">현재가 (QLD)</div>
-                <div class="metric-value">$88.80</div>
-                <div class="metric-sub">SMA200: $78.26</div>
+                <div class="metric-value">$88.93</div>
+                <div class="metric-sub">SMA200: $78.35</div>
             </div>
             <div class="glass-card" id="metric-deviation">
                 <div class="metric-title">200일선 괴리율</div>
-                <div class="metric-value" style="color:#00d68f">+13.47%</div>
+                <div class="metric-value" style="color:#00d68f">+13.50%</div>
                 <div class="metric-sub">임계: -10% / -18% / -26%</div>
             </div>
             <div class="glass-card" id="metric-rsi">
                 <div class="metric-title">주봉 RSI (진행형)</div>
-                <div class="metric-value" style="color:#00d68f">55.1</div>
+                <div class="metric-value" style="color:#00d68f">55.2</div>
                 <div class="metric-sub">임계: 48 / 42 / 36</div>
             </div>
         </div>
@@ -271,8 +271,8 @@
                 <div class="metric-title">1단계 진입까지 — 괴리율</div>
                 <div class="progress-container">
                     <div class="progress-label">
-                        <span>현재: +13.47%</span>
-                        <span>목표: -10% (23.47%p 남음)</span>
+                        <span>현재: +13.50%</span>
+                        <span>목표: -10% (23.50%p 남음)</span>
                     </div>
                     <div class="progress-bar-bg">
                         <div class="progress-fill" id="dev-bar"></div>
@@ -283,8 +283,8 @@
                 <div class="metric-title">1단계 진입까지 — RSI</div>
                 <div class="progress-container">
                     <div class="progress-label">
-                        <span>현재: 55.1</span>
-                        <span>목표: 48 (7.1pt 남음)</span>
+                        <span>현재: 55.2</span>
+                        <span>목표: 48 (7.2pt 남음)</span>
                     </div>
                     <div class="progress-bar-bg">
                         <div class="progress-fill" id="rsi-bar"></div>
@@ -303,6 +303,18 @@
                 <span><span class="legend-dot" style="background:#ffaa00;"></span> 괴리율 (좌축)</span>
                 <span><span class="legend-dot" style="background:#00d68f;"></span> RSI (우축)</span>
                 <span><span class="legend-dot" style="background:rgba(255,56,96,0.5);"></span> 임계선</span>
+            </div>
+        </div>
+
+        <!-- QLD 가격 추이 -->
+        <div class="glass-card" id="price-chart-section">
+            <div class="metric-title" style="margin-bottom:0.5rem;">QLD 종가 추이 (30일)</div>
+            <div class="chart-container">
+                <canvas id="priceChart"></canvas>
+            </div>
+            <div class="chart-legend">
+                <span><span class="legend-dot" style="background:#3b82f6;"></span> 종가</span>
+                <span><span class="legend-dot" style="background:rgba(148,163,184,0.7);"></span> 200일선</span>
             </div>
         </div>
 
@@ -398,7 +410,7 @@
                         <thead><tr><th>상태</th><th>조건</th><th>설명</th></tr></thead>
                         <tbody>
                             <tr><td>🟢 안정</td><td>괴리율 &gt; -5% AND RSI &gt; 55</td><td>평시 관망 구간</td></tr>
-                            <tr><td>🟡 관심</td><td>괴리율 -5%~-10% OR RSI 48~55</td><td>매수 임계치 근접, 현금 점검</td></tr>
+                            <tr><td>🟡 관심</td><td>안정·1단계 조건에 모두 해당하지 않는 나머지</td><td>매수 임계치 근접, 현금 점검</td></tr>
                             <tr><td>🟠 1단계</td><td>RSI ≤ 48 AND 괴리율 ≤ -10%</td><td>분할 매수 시작 (8주 1차)</td></tr>
                             <tr><td>🔴 2단계</td><td>RSI ≤ 42 AND 괴리율 ≤ -18%</td><td>매력적 매수 (계획 이행)</td></tr>
                             <tr><td>🟣 3단계</td><td>RSI ≤ 36 AND 괴리율 ≤ -26%</td><td>역사적 바닥 (전력 매수)</td></tr>
@@ -425,12 +437,12 @@
         window.addEventListener('load', function() {
             setTimeout(function() {
                 document.getElementById('dev-bar').style.width = '0.0%';
-                document.getElementById('rsi-bar').style.width = '67.7%';
+                document.getElementById('rsi-bar').style.width = '67.3%';
             }, 300);
         });
 
         // ── Chart ──
-        const chartData = [{"date": "2026-07-31", "close": 82.26, "sma200": 76.57, "deviation": 7.44, "rsi": 50.6, "status": "관심"}, {"date": "2026-08-08", "close": 92.21, "sma200": 77.18, "deviation": 19.47, "rsi": 59.0, "status": "안정"}, {"date": "2026-08-10", "close": 92.21, "sma200": 77.18, "deviation": 19.47, "rsi": 59.0, "status": "안정"}, {"date": "2026-08-11", "close": 91.63, "sma200": 77.29, "deviation": 18.56, "rsi": 58.4, "status": "안정"}, {"date": "2026-08-12", "close": 90.98, "sma200": 77.4, "deviation": 17.55, "rsi": 57.4, "status": "안정"}, {"date": "2026-08-13", "close": 92.32, "sma200": 77.51, "deviation": 19.11, "rsi": 58.8, "status": "안정"}, {"date": "2026-08-14", "close": 94.43, "sma200": 77.62, "deviation": 21.66, "rsi": 60.3, "status": "안정"}, {"date": "2026-08-15", "close": 94.15, "sma200": 77.72, "deviation": 21.15, "rsi": 60.1, "status": "안정"}, {"date": "2026-08-17", "close": 94.15, "sma200": 77.72, "deviation": 21.15, "rsi": 60.1, "status": "안정"}, {"date": "2026-08-19", "close": 90.65, "sma200": 77.88, "deviation": 16.4, "rsi": 56.4, "status": "안정"}, {"date": "2026-08-20", "close": 90.25, "sma200": 77.96, "deviation": 15.76, "rsi": 56.0, "status": "안정"}, {"date": "2026-08-21", "close": 88.95, "sma200": 78.03, "deviation": 13.99, "rsi": 54.7, "status": "관심"}, {"date": "2026-08-22", "close": 89.53, "sma200": 78.1, "deviation": 14.63, "rsi": 55.3, "status": "안정"}, {"date": "2026-08-24", "close": 89.53, "sma200": 78.1, "deviation": 14.63, "rsi": 55.3, "status": "안정"}, {"date": "2026-08-25", "close": 87.72, "sma200": 78.18, "deviation": 12.2, "rsi": 53.4, "status": "관심"}, {"date": "2026-08-26", "close": 88.8, "sma200": 78.26, "deviation": 13.47, "rsi": 55.1, "status": "안정"}];
+        const chartData = [{"date": "2026-07-31", "close": 82.26, "sma200": 76.57, "deviation": 7.44, "rsi": 50.6, "status": "관심"}, {"date": "2026-08-08", "close": 92.21, "sma200": 77.18, "deviation": 19.47, "rsi": 59.0, "status": "안정"}, {"date": "2026-08-10", "close": 92.21, "sma200": 77.18, "deviation": 19.47, "rsi": 59.0, "status": "안정"}, {"date": "2026-08-11", "close": 91.63, "sma200": 77.29, "deviation": 18.56, "rsi": 58.4, "status": "안정"}, {"date": "2026-08-12", "close": 90.98, "sma200": 77.4, "deviation": 17.55, "rsi": 57.4, "status": "안정"}, {"date": "2026-08-13", "close": 92.32, "sma200": 77.51, "deviation": 19.11, "rsi": 58.8, "status": "안정"}, {"date": "2026-08-14", "close": 94.43, "sma200": 77.62, "deviation": 21.66, "rsi": 60.3, "status": "안정"}, {"date": "2026-08-15", "close": 94.15, "sma200": 77.72, "deviation": 21.15, "rsi": 60.1, "status": "안정"}, {"date": "2026-08-17", "close": 94.15, "sma200": 77.72, "deviation": 21.15, "rsi": 60.1, "status": "안정"}, {"date": "2026-08-19", "close": 90.65, "sma200": 77.88, "deviation": 16.4, "rsi": 56.4, "status": "안정"}, {"date": "2026-08-20", "close": 90.25, "sma200": 77.96, "deviation": 15.76, "rsi": 56.0, "status": "안정"}, {"date": "2026-08-21", "close": 88.95, "sma200": 78.03, "deviation": 13.99, "rsi": 54.7, "status": "관심"}, {"date": "2026-08-22", "close": 89.53, "sma200": 78.1, "deviation": 14.63, "rsi": 55.3, "status": "안정"}, {"date": "2026-08-24", "close": 89.53, "sma200": 78.1, "deviation": 14.63, "rsi": 55.3, "status": "안정"}, {"date": "2026-08-25", "close": 87.72, "sma200": 78.18, "deviation": 12.2, "rsi": 53.4, "status": "관심"}, {"date": "2026-08-26", "close": 88.8, "sma200": 78.26, "deviation": 13.47, "rsi": 55.1, "status": "안정"}, {"date": "2026-08-27", "close": 88.93, "sma200": 78.35, "deviation": 13.5, "rsi": 55.2, "status": "안정"}];
 
         function drawChart() {
             const canvas = document.getElementById('trendChart');
@@ -561,14 +573,95 @@
             }
         }
 
+        function drawPriceChart() {
+            const canvas = document.getElementById('priceChart');
+            if (!canvas || !chartData || chartData.length < 2) return;
+
+            const ctx = canvas.getContext('2d');
+            const dpr = window.devicePixelRatio || 1;
+            const rect = canvas.parentElement.getBoundingClientRect();
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            canvas.style.width = rect.width + 'px';
+            canvas.style.height = rect.height + 'px';
+            ctx.scale(dpr, dpr);
+
+            const W = rect.width;
+            const H = rect.height;
+            const pad = { top:25, right:20, bottom:35, left:55 };
+            const pW = W - pad.left - pad.right;
+            const pH = H - pad.top - pad.bottom;
+            const n = chartData.length;
+
+            const closes = chartData.map(d => d.close);
+            const smas = chartData.map(d => d.sma200);
+            const dates = chartData.map(d => d.date);
+
+            const pMin = Math.min(...closes, ...smas) * 0.97;
+            const pMax = Math.max(...closes, ...smas) * 1.03;
+
+            const xOf = i => pad.left + (i / (n - 1)) * pW;
+            const yOf = v => pad.top + pH - ((v - pMin) / (pMax - pMin)) * pH;
+
+            // 배경 그리드
+            ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+            ctx.lineWidth = 1;
+            for (let i = 0; i < 5; i++) {
+                const y = pad.top + (pH / 4) * i;
+                ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(W - pad.right, y); ctx.stroke();
+            }
+
+            // X축 날짜 라벨
+            ctx.fillStyle = '#64748b';
+            ctx.font = '10px Inter';
+            ctx.textAlign = 'center';
+            const step = Math.max(1, Math.floor(n / 6));
+            for (let i = 0; i < n; i += step) {
+                ctx.fillText(dates[i].substring(5), xOf(i), H - 8);
+            }
+
+            // 200일선 (점선)
+            ctx.beginPath();
+            ctx.setLineDash([4, 4]);
+            ctx.moveTo(xOf(0), yOf(smas[0]));
+            for (let i = 1; i < n; i++) ctx.lineTo(xOf(i), yOf(smas[i]));
+            ctx.strokeStyle = 'rgba(148,163,184,0.7)'; ctx.lineWidth = 1.5; ctx.stroke();
+            ctx.setLineDash([]);
+
+            // 종가 라인 + 영역 fill
+            ctx.beginPath();
+            ctx.moveTo(xOf(0), yOf(closes[0]));
+            for (let i = 1; i < n; i++) ctx.lineTo(xOf(i), yOf(closes[i]));
+            ctx.lineTo(xOf(n-1), H - pad.bottom); ctx.lineTo(xOf(0), H - pad.bottom); ctx.closePath();
+            ctx.fillStyle = 'rgba(59,130,246,0.08)'; ctx.fill();
+
+            ctx.beginPath();
+            ctx.moveTo(xOf(0), yOf(closes[0]));
+            for (let i = 1; i < n; i++) ctx.lineTo(xOf(i), yOf(closes[i]));
+            ctx.strokeStyle = '#3b82f6'; ctx.lineWidth = 2.5; ctx.stroke();
+
+            // 최신 데이터 포인트 dot
+            ctx.beginPath(); ctx.arc(xOf(n-1), yOf(closes[n-1]), 4, 0, Math.PI*2);
+            ctx.fillStyle = '#3b82f6'; ctx.fill();
+
+            // Y축 라벨 (가격)
+            ctx.textAlign = 'right'; ctx.fillStyle = '#8b9bb4'; ctx.font = '10px Inter';
+            for (let i = 0; i <= 4; i++) {
+                const v = pMin + (pMax - pMin) * (i / 4);
+                ctx.fillText('$' + v.toFixed(0), pad.left - 8, pad.top + pH - (pH / 4) * i + 3);
+            }
+        }
+
         drawChart();
+        drawPriceChart();
         window.addEventListener('resize', drawChart);
+        window.addEventListener('resize', drawPriceChart);
 
         // ══════════════════════════════════════════════
         // ── Portfolio Manager (localStorage) ──
         // ══════════════════════════════════════════════
         const PF_KEY = 'qld_portfolio_v2';
-        const SERVER_PRICES = {"USDKRW": 1382.280029296875, "418660": 39530.0, "486290": 10560.0, "DGRO": 79.83999633789062, "0046A0": 9595.0};
+        const SERVER_PRICES = {"USDKRW": 1378.8800048828125, "418660": 39955.0, "486290": 10630.0, "DGRO": 79.76000213623047, "0046A0": 9560.0};
         let usdKrwRate = SERVER_PRICES["USDKRW"] || 1380; // Python에서 수집한 환율
 
         const PF_COLORS = [
