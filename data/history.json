@@ -286,5 +286,13 @@
     "deviation": NaN,
     "rsi": 52.0,
     "status": "관심"
+  },
+  {
+    "date": "2026-09-19",
+    "close": NaN,
+    "sma200": 79.89,
+    "deviation": NaN,
+    "rsi": 55.5,
+    "status": "관심"
   }
 ]
