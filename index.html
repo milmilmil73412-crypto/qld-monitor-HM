@@ -14,7 +14,7 @@
             --border-color: rgba(255,255,255,0.08);
             --text-primary: #f1f5f9;
             --text-secondary: #8b9bb4;
-            --status-color: #ffaa00;
+            --status-color: #00d68f;
         }
 
         * { margin:0; padding:0; box-sizing:border-box; font-family:'Inter',system-ui,-apple-system,sans-serif; }
@@ -236,31 +236,31 @@
     <div class="container">
         <header>
             <h1>📊 QLD 모니터링 대시보드</h1>
-            <div class="last-updated">마지막 업데이트: 2026-10-03 10:30 KST</div>
+            <div class="last-updated">마지막 업데이트: 2026-10-05 10:33 KST</div>
         </header>
 
         <!-- 상태 히어로 카드 -->
         <div class="glass-card hero-card" id="hero-status">
-            <div class="hero-emoji">🟡</div>
-            <div class="hero-title">관심</div>
-            <div class="hero-desc">매수 임계치 근접 — 현금 사전 점검</div>
+            <div class="hero-emoji">🟢</div>
+            <div class="hero-title">안정</div>
+            <div class="hero-desc">평시 관망 구간</div>
         </div>
 
         <!-- 핵심 지표 카드 -->
         <div class="metrics-grid">
             <div class="glass-card" id="metric-close">
                 <div class="metric-title">현재가 (QLD)</div>
-                <div class="metric-value">$nan</div>
-                <div class="metric-sub">SMA200: $81.04</div>
+                <div class="metric-value">$98.13</div>
+                <div class="metric-sub">SMA200: $81.13</div>
             </div>
             <div class="glass-card" id="metric-deviation">
                 <div class="metric-title">200일선 괴리율</div>
-                <div class="metric-value" style="color:#00d68f">+nan%</div>
+                <div class="metric-value" style="color:#00d68f">+20.96%</div>
                 <div class="metric-sub">임계: -10% / -18% / -26%</div>
             </div>
             <div class="glass-card" id="metric-rsi">
                 <div class="metric-title">주봉 RSI (확정)</div>
-                <div class="metric-value" style="color:#00d68f">60.3</div>
+                <div class="metric-value" style="color:#00d68f">62.2</div>
                 <div class="metric-sub">임계: 48 / 42 / 36</div>
             </div>
         </div>
@@ -271,8 +271,8 @@
                 <div class="metric-title">1단계 진입까지 — 괴리율</div>
                 <div class="progress-container">
                     <div class="progress-label">
-                        <span>현재: +nan%</span>
-                        <span>목표: -10% (nan%p 남음)</span>
+                        <span>현재: +20.96%</span>
+                        <span>목표: -10% (30.96%p 남음)</span>
                     </div>
                     <div class="progress-bar-bg">
                         <div class="progress-fill" id="dev-bar"></div>
@@ -283,8 +283,8 @@
                 <div class="metric-title">1단계 진입까지 — RSI</div>
                 <div class="progress-container">
                     <div class="progress-label">
-                        <span>현재: 60.3</span>
-                        <span>목표: 48 (12.3pt 남음)</span>
+                        <span>현재: 62.2</span>
+                        <span>목표: 48 (14.2pt 남음)</span>
                     </div>
                     <div class="progress-bar-bg">
                         <div class="progress-fill" id="rsi-bar"></div>
@@ -437,12 +437,12 @@
         window.addEventListener('load', function() {
             setTimeout(function() {
                 document.getElementById('dev-bar').style.width = '0.0%';
-                document.getElementById('rsi-bar').style.width = '44.1%';
+                document.getElementById('rsi-bar').style.width = '35.5%';
             }, 300);
         });
 
         // ── Chart ──
-        const chartData = [{"date": "2026-08-31", "close": 90.17, "sma200": 78.54, "deviation": 14.8, "rsi": 56.4, "status": "안정"}, {"date": "2026-09-01", "close": 90.24, "sma200": 78.63, "deviation": 14.76, "rsi": 56.1, "status": "안정"}, {"date": "2026-09-02", "close": 87.92, "sma200": 78.71, "deviation": 11.7, "rsi": 53.6, "status": "관심"}, {"date": "2026-09-03", "close": NaN, "sma200": 78.75, "deviation": NaN, "rsi": 53.6, "status": "관심"}, {"date": "2026-09-04", "close": NaN, "sma200": 78.85, "deviation": NaN, "rsi": 54.0, "status": "관심"}, {"date": "2026-09-05", "close": NaN, "sma200": 78.96, "deviation": NaN, "rsi": 56.2, "status": "관심"}, {"date": "2026-09-07", "close": 90.68, "sma200": 79.02, "deviation": 14.76, "rsi": 56.5, "status": "안정"}, {"date": "2026-09-08", "close": 90.68, "sma200": 79.02, "deviation": 14.76, "rsi": 56.5, "status": "안정"}, {"date": "2026-09-09", "close": NaN, "sma200": 79.08, "deviation": NaN, "rsi": 56.1, "status": "관심"}, {"date": "2026-09-10", "close": NaN, "sma200": 79.2, "deviation": NaN, "rsi": 56.0, "status": "관심"}, {"date": "2026-09-11", "close": NaN, "sma200": 79.32, "deviation": NaN, "rsi": 55.3, "status": "관심"}, {"date": "2026-09-12", "close": NaN, "sma200": 79.44, "deviation": NaN, "rsi": 53.1, "status": "관심"}, {"date": "2026-09-14", "close": 89.55, "sma200": 79.49, "deviation": 12.66, "rsi": 54.8, "status": "관심"}, {"date": "2026-09-15", "close": NaN, "sma200": 79.54, "deviation": NaN, "rsi": 55.1, "status": "관심"}, {"date": "2026-09-16", "close": NaN, "sma200": 79.64, "deviation": NaN, "rsi": 53.3, "status": "관심"}, {"date": "2026-09-17", "close": NaN, "sma200": 79.72, "deviation": NaN, "rsi": 52.0, "status": "관심"}, {"date": "2026-09-18", "close": NaN, "sma200": 79.8, "deviation": NaN, "rsi": 52.0, "status": "관심"}, {"date": "2026-09-19", "close": NaN, "sma200": 79.89, "deviation": NaN, "rsi": 55.5, "status": "관심"}, {"date": "2026-09-21", "close": 91.0, "sma200": 79.94, "deviation": 13.83, "rsi": 56.5, "status": "안정"}, {"date": "2026-09-22", "close": NaN, "sma200": 79.98, "deviation": NaN, "rsi": 56.5, "status": "관심"}, {"date": "2026-09-23", "close": NaN, "sma200": 80.1, "deviation": NaN, "rsi": 61.3, "status": "관심"}, {"date": "2026-09-24", "close": NaN, "sma200": 80.23, "deviation": NaN, "rsi": 62.6, "status": "관심"}, {"date": "2026-09-25", "close": NaN, "sma200": 80.32, "deviation": NaN, "rsi": 61.3, "status": "관심"}, {"date": "2026-09-26", "close": NaN, "sma200": 80.44, "deviation": NaN, "rsi": 61.2, "status": "관심"}, {"date": "2026-09-28", "close": 96.95, "sma200": 80.52, "deviation": 20.4, "rsi": 61.9, "status": "안정"}, {"date": "2026-09-29", "close": 94.87, "sma200": 80.63, "deviation": 17.66, "rsi": 58.5, "status": "안정"}, {"date": "2026-09-30", "close": 95.22, "sma200": 80.74, "deviation": 17.93, "rsi": 58.9, "status": "안정"}, {"date": "2026-10-01", "close": 95.65, "sma200": 80.85, "deviation": 18.3, "rsi": 59.5, "status": "안정"}, {"date": "2026-10-02", "close": 96.24, "sma200": 80.98, "deviation": 18.84, "rsi": 60.3, "status": "안정"}, {"date": "2026-10-03", "close": NaN, "sma200": 81.04, "deviation": NaN, "rsi": 60.3, "status": "관심"}];
+        const chartData = [{"date": "2026-09-01", "close": 90.24, "sma200": 78.63, "deviation": 14.76, "rsi": 56.1, "status": "안정"}, {"date": "2026-09-02", "close": 87.92, "sma200": 78.71, "deviation": 11.7, "rsi": 53.6, "status": "관심"}, {"date": "2026-09-03", "close": NaN, "sma200": 78.75, "deviation": NaN, "rsi": 53.6, "status": "관심"}, {"date": "2026-09-04", "close": NaN, "sma200": 78.85, "deviation": NaN, "rsi": 54.0, "status": "관심"}, {"date": "2026-09-05", "close": NaN, "sma200": 78.96, "deviation": NaN, "rsi": 56.2, "status": "관심"}, {"date": "2026-09-07", "close": 90.68, "sma200": 79.02, "deviation": 14.76, "rsi": 56.5, "status": "안정"}, {"date": "2026-09-08", "close": 90.68, "sma200": 79.02, "deviation": 14.76, "rsi": 56.5, "status": "안정"}, {"date": "2026-09-09", "close": NaN, "sma200": 79.08, "deviation": NaN, "rsi": 56.1, "status": "관심"}, {"date": "2026-09-10", "close": NaN, "sma200": 79.2, "deviation": NaN, "rsi": 56.0, "status": "관심"}, {"date": "2026-09-11", "close": NaN, "sma200": 79.32, "deviation": NaN, "rsi": 55.3, "status": "관심"}, {"date": "2026-09-12", "close": NaN, "sma200": 79.44, "deviation": NaN, "rsi": 53.1, "status": "관심"}, {"date": "2026-09-14", "close": 89.55, "sma200": 79.49, "deviation": 12.66, "rsi": 54.8, "status": "관심"}, {"date": "2026-09-15", "close": NaN, "sma200": 79.54, "deviation": NaN, "rsi": 55.1, "status": "관심"}, {"date": "2026-09-16", "close": NaN, "sma200": 79.64, "deviation": NaN, "rsi": 53.3, "status": "관심"}, {"date": "2026-09-17", "close": NaN, "sma200": 79.72, "deviation": NaN, "rsi": 52.0, "status": "관심"}, {"date": "2026-09-18", "close": NaN, "sma200": 79.8, "deviation": NaN, "rsi": 52.0, "status": "관심"}, {"date": "2026-09-19", "close": NaN, "sma200": 79.89, "deviation": NaN, "rsi": 55.5, "status": "관심"}, {"date": "2026-09-21", "close": 91.0, "sma200": 79.94, "deviation": 13.83, "rsi": 56.5, "status": "안정"}, {"date": "2026-09-22", "close": NaN, "sma200": 79.98, "deviation": NaN, "rsi": 56.5, "status": "관심"}, {"date": "2026-09-23", "close": NaN, "sma200": 80.1, "deviation": NaN, "rsi": 61.3, "status": "관심"}, {"date": "2026-09-24", "close": NaN, "sma200": 80.23, "deviation": NaN, "rsi": 62.6, "status": "관심"}, {"date": "2026-09-25", "close": NaN, "sma200": 80.32, "deviation": NaN, "rsi": 61.3, "status": "관심"}, {"date": "2026-09-26", "close": NaN, "sma200": 80.44, "deviation": NaN, "rsi": 61.2, "status": "관심"}, {"date": "2026-09-28", "close": 96.95, "sma200": 80.52, "deviation": 20.4, "rsi": 61.9, "status": "안정"}, {"date": "2026-09-29", "close": 94.87, "sma200": 80.63, "deviation": 17.66, "rsi": 58.5, "status": "안정"}, {"date": "2026-09-30", "close": 95.22, "sma200": 80.74, "deviation": 17.93, "rsi": 58.9, "status": "안정"}, {"date": "2026-10-01", "close": 95.65, "sma200": 80.85, "deviation": 18.3, "rsi": 59.5, "status": "안정"}, {"date": "2026-10-02", "close": 96.24, "sma200": 80.98, "deviation": 18.84, "rsi": 60.3, "status": "안정"}, {"date": "2026-10-03", "close": NaN, "sma200": 81.04, "deviation": NaN, "rsi": 60.3, "status": "관심"}, {"date": "2026-10-05", "close": 98.13, "sma200": 81.13, "deviation": 20.96, "rsi": 62.2, "status": "안정"}];
 
         function drawChart() {
             const canvas = document.getElementById('trendChart');
@@ -661,7 +661,7 @@
         // ── Portfolio Manager (localStorage) ──
         // ══════════════════════════════════════════════
         const PF_KEY = 'qld_portfolio_v2';
-        const SERVER_PRICES = {"USDKRW": 1342.510009765625, "418660": 41110.0, "486290": 10505.0, "DGRO": 75.7699966430664, "0046A0": 9340.0};
+        const SERVER_PRICES = {"USDKRW": 1342.030029296875, "418660": 41110.0, "486290": 10505.0, "DGRO": 75.7699966430664, "0046A0": 9340.0};
         let usdKrwRate = SERVER_PRICES["USDKRW"] || 1380; // Python에서 수집한 환율
 
         const PF_COLORS = [
