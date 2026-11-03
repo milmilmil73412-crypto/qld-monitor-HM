@@ -1,0 +1,5 @@
+# 보유 수량은 공개 저장소에 올리지 않는다 (Actions 변수 HOLDINGS_JSON에 저장)
+holdings.json
+# --dry-run 메일 미리보기
+preview/
+__pycache__/

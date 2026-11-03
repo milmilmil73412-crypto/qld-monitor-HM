@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
-QLD 자동 매수 알림 및 웹 대시보드 시스템
+ISA K-QLD 비중관리 알림 + QLD/K-QLD 신호(참고용) + 웹 대시보드
 ==========================================
+- 목표 K-SCHD 40 / K-QLD 50 / K-SGOV 10, 계산은 isa.py, 메일은 isa_mail.py, 잔고 입력은 isa_inbox.py
 - yfinance 기반 QLD 지표 계산 (200일선 괴리율, 주봉 RSI)
 - 상태 판정 (안정/관심/1단계/2단계/3단계)
 - Gmail SMTP 이메일 발송
@@ -23,6 +24,10 @@ from zoneinfo import ZoneInfo
 import pandas as pd
 import yfinance as yf
 
+import isa
+import isa_inbox
+import isa_mail
+
 
 # ─── 상수 ──────────────────────────────────────────────────────────────────────
 
@@ -35,7 +40,7 @@ STATUS_LEVELS = [
         "name": "3단계",
         "emoji": "🟣",
         "color": "#b86bff",
-        "description": "역사적 바닥 — 2차 8주 + 배당금 전력 매수",
+        "description": "깊은 하락 — 참고용 (바닥 아님, 규칙상 추가매수 없음)",
         "rsi_threshold": 36,
         "deviation_threshold": -26,
     },
@@ -43,7 +48,7 @@ STATUS_LEVELS = [
         "name": "2단계",
         "emoji": "🔴",
         "color": "#ff3860",
-        "description": "매력적 매수 — 계획 철저 이행",
+        "description": "큰 조정 — 참고용 (규칙상 추가매수 없음)",
         "rsi_threshold": 42,
         "deviation_threshold": -18,
     },
@@ -51,7 +56,7 @@ STATUS_LEVELS = [
         "name": "1단계",
         "emoji": "🟠",
         "color": "#ff6b35",
-        "description": "분할 매수 시작 — 8주 1차 구동",
+        "description": "조정 진입 — 참고용 (규칙상 추가매수 없음)",
         "rsi_threshold": 48,
         "deviation_threshold": -10,
     },
@@ -61,7 +66,7 @@ STATUS_WATCH = {
     "name": "관심",
     "emoji": "🟡",
     "color": "#ffaa00",
-    "description": "매수 임계치 근접 — 현금 사전 점검",
+    "description": "조정 근처 — 참고용",
 }
 
 STATUS_STABLE = {
@@ -72,20 +77,66 @@ STATUS_STABLE = {
 }
 
 HISTORY_MAX_DAYS = 90
+
 HISTORY_PATH = Path(__file__).parent / "data" / "history.json"
+PREVIEW_DIR = Path(__file__).parent / "preview"   # --dry-run 메일 미리보기 (.gitignore)
 OUTPUT_HTML_PATH = Path(__file__).parent / "index.html"
 
 
 # ─── 지표 계산 ─────────────────────────────────────────────────────────────────
 
-def fetch_qld_data(period_days: int = 300) -> pd.DataFrame:
-    """yfinance에서 QLD 일봉 데이터를 가져온다."""
-    ticker = yf.Ticker("QLD")
+def fetch_price_data(symbol: str, period_days: int = 300) -> pd.DataFrame:
+    """yfinance에서 일봉 데이터를 가져온다. 종가가 빈(NaN) 행은 제거한다."""
+    ticker = yf.Ticker(symbol)
     # 200일선 계산을 위해 충분한 데이터 확보
     df = ticker.history(period=f"{period_days}d", interval="1d")
     if df.empty:
-        raise RuntimeError("QLD 데이터를 가져올 수 없습니다. yfinance API를 확인하세요.")
+        raise RuntimeError(f"{symbol} 데이터를 가져올 수 없습니다. yfinance API를 확인하세요.")
+    # [수정 2026-11] 마지막 행 등에 종가가 NaN으로 오는 경우가 있어 제거 (history.json NaN 기록 원인)
+    df = df.dropna(subset=["Close"])
+    if df.empty:
+        raise RuntimeError(f"{symbol} 데이터에 유효한 종가가 없습니다.")
     return df
+
+
+def fetch_qld_data(period_days: int = 300) -> pd.DataFrame:
+    """QLD 일봉 데이터."""
+    return fetch_price_data("QLD", period_days)
+
+
+def fetch_krx_data(code: str, now_kst: datetime, period_days: int = 300) -> pd.DataFrame:
+    """한국 상장 종목 일봉. 한국장 마감(15:40) 전에 실행되면 오늘 행은 장중 가격이므로 버리고 전일 종가를 쓴다."""
+    df = fetch_price_data(f"{code}.KS", period_days)
+    last_date = df.index[-1].date()
+    if last_date == now_kst.date() and (now_kst.hour, now_kst.minute) < (15, 40):
+        df = df.iloc[:-1]
+    return df
+
+
+def fetch_kqld_data(now_kst: datetime, period_days: int = 300) -> pd.DataFrame:
+    """K-QLD(418660, TIGER 미국나스닥100레버리지(합성)) 일봉 데이터."""
+    return fetch_krx_data("418660", now_kst, period_days)
+
+
+def combine_signal(qld_status: dict, k_status: dict) -> dict:
+    """두 기준(QLD 달러 / K-QLD 원화)의 신호를 합쳐 해석한다.
+    - 둘 다 1단계 이상: 나스닥 자체가 싸고 원화 기준으로도 싼 상태
+    - QLD만: 나스닥은 빠졌지만 원화 약세가 K-QLD 하락을 완충 (0046A0 → K-QLD 교체 판단 기준)
+    - K-QLD만: 나스닥보다 환율(원화 강세) 영향이 큰 신호 (신규 원화 자금 판단 기준)
+    """
+    signal_names = {lvl["name"] for lvl in STATUS_LEVELS}
+    q_on = qld_status["name"] in signal_names
+    k_on = k_status["name"] in signal_names
+    if q_on and k_on:
+        return {"code": "both", "label": "둘 다 신호", "emoji": "🔴🔴",
+                "desc": "나스닥 자체 하락 + 원화 기준으로도 싼 구간 (참고용, 매수량은 목표비중 규칙대로)"}
+    if q_on:
+        return {"code": "qld_only", "label": "QLD만 신호", "emoji": "🔴⚪",
+                "desc": "나스닥은 빠졌지만 원화 약세가 완충 중 (참고용)"}
+    if k_on:
+        return {"code": "kqld_only", "label": "K-QLD만 신호", "emoji": "⚪🔴",
+                "desc": "나스닥보다 환율(원화 강세) 영향이 큰 신호 (참고용)"}
+    return {"code": "none", "label": "신호 없음", "emoji": "⚪⚪", "desc": "두 기준 모두 신호 없음"}
 
 
 def calc_sma200(df: pd.DataFrame) -> float:
@@ -225,7 +276,8 @@ def save_history(history: list[dict]) -> None:
 
 
 def update_history(date_str: str, close: float, sma200: float,
-                   deviation: float, rsi: float, status_name: str) -> list[dict]:
+                   deviation: float, rsi: float, status_name: str,
+                   extra: dict | None = None) -> list[dict]:
     """오늘 데이터를 이력에 추가하고 저장한다."""
     history = load_history()
 
@@ -237,6 +289,8 @@ def update_history(date_str: str, close: float, sma200: float,
         "rsi": round(rsi, 1),
         "status": status_name,
     }
+    if extra:
+        today_entry.update(extra)
 
     history = [h for h in history if h.get("date") != date_str]
     history.append(today_entry)
@@ -250,9 +304,25 @@ def update_history(date_str: str, close: float, sma200: float,
 
 def build_email_html(status: dict, close: float, sma200: float,
                      deviation: float, rsi: float, rsi_type: str,
-                     margin: dict, now_kst: datetime, history: list[dict]) -> str:
+                     margin: dict, now_kst: datetime, history: list[dict],
+                     kqld: dict | None = None, isa_html: str = "",
+                     title: str = "📊 ISA 데일리") -> str:
     """HTML 형태의 이메일 본문을 생성한다."""
-    date_str = now_kst.strftime("%Y년 %m월 %d일 (%a)")
+    weekday_ko = ["월", "화", "수", "목", "금", "토", "일"][now_kst.weekday()]
+    date_str = now_kst.strftime("%Y년 %m월 %d일") + f" ({weekday_ko})"
+
+    # K-QLD(원화 기준) 카드
+    kqld_html = ""
+    if kqld:
+        ks = kqld["status"]
+        comb = kqld["combined"]
+        kqld_html = f'''<div style="margin:12px 0 20px;padding:18px;border-radius:16px;background:#111827;border:1px solid {ks['color']}66;">
+  <div style="font-size:13px;color:#94a3b8;margin-bottom:6px;">K-QLD 418660 (원화 기준)</div>
+  <div style="font-size:22px;font-weight:700;color:{ks['color']};">{ks['emoji']} {ks['name']}</div>
+  <div style="font-size:13px;color:#cbd5e1;margin-top:6px;">종가 {kqld['close']:,.0f}원 · 200일선 {kqld['sma200']:,.0f}원 · 괴리율 {kqld['deviation']:+.2f}% · 주봉 RSI {kqld['rsi']:.1f} (기준일 {kqld['date']})</div>
+  <div style="margin-top:12px;padding-top:10px;border-top:1px solid #1e293b;font-size:14px;color:#e2e8f0;"><b>종합: {comb['emoji']} {comb['label']}</b></div>
+  <div style="font-size:12px;color:#94a3b8;margin-top:4px;">{comb['desc']}</div>
+</div>'''
 
     status_bg_map = {
         "안정": "linear-gradient(135deg, #00d68f22, #00d68f11)",
@@ -304,7 +374,7 @@ def build_email_html(status: dict, close: float, sma200: float,
         }
     }
     chart_url = "https://quickchart.io/chart?c=" + urllib.parse.quote(json.dumps(chart_config)) + "&w=600&h=300&bkg=111827" if recent else ""
-    chart_html = f'<div style="text-align:center; margin: 20px 0;"><img src="{{chart_url}}" alt="Trend Chart" style="max-width:100%; border-radius:12px; border:1px solid #1e293b;"></div>' if chart_url else ''
+    chart_html = f'<div style="text-align:center; margin: 20px 0;"><img src="{chart_url}" alt="Trend Chart" style="max-width:100%; border-radius:12px; border:1px solid #1e293b;"></div>' if chart_url else ''
 
     return f"""<!DOCTYPE html>
 <html>
@@ -314,18 +384,25 @@ def build_email_html(status: dict, close: float, sma200: float,
 
 <!-- Header -->
 <div style="text-align:center;padding:20px 0;border-bottom:1px solid #1e293b;">
-  <h1 style="color:#e2e8f0;font-size:20px;margin:0;">📊 QLD 데일리 모니터링</h1>
-  <p style="color:#64748b;font-size:13px;margin:5px 0 0;">{{date_str}} | {{rsi_type}} 주봉 RSI</p>
+  <h1 style="color:#e2e8f0;font-size:20px;margin:0;">{title}</h1>
+  <p style="color:#64748b;font-size:13px;margin:5px 0 0;">{date_str} | {rsi_type} 주봉 RSI</p>
 </div>
+
+{isa_html}
+
+<div style="margin:28px 0 0;color:#94a3b8;font-size:13px;font-weight:600;">📊 신호 상세 (참고용 — 매수량은 목표비중 규칙대로)</div>
 
 <!-- 상태 카드 -->
-<div style="margin:20px 0;padding:24px;border-radius:16px;background:{{bg}};border:1px solid {{status['color']}}44;text-align:center;">
-  <div style="font-size:48px;margin-bottom:8px;">{{status['emoji']}}</div>
-  <div style="font-size:28px;font-weight:700;color:{{status['color']}};margin-bottom:4px;">{{status['name']}}</div>
-  <div style="font-size:14px;color:#94a3b8;">{{status['description']}}</div>
+<div style="margin:20px 0;padding:24px;border-radius:16px;background:{bg};border:1px solid {status['color']}44;text-align:center;">
+  <div style="font-size:13px;color:#94a3b8;margin-bottom:4px;">QLD (달러 기준)</div>
+  <div style="font-size:48px;margin-bottom:8px;">{status['emoji']}</div>
+  <div style="font-size:28px;font-weight:700;color:{status['color']};margin-bottom:4px;">{status['name']}</div>
+  <div style="font-size:14px;color:#94a3b8;">{status['description']}</div>
 </div>
 
-{{chart_html}}
+{kqld_html}
+
+{chart_html}
 
 <!-- 지표 카드 -->
 <table style="width:100%;border-collapse:separate;border-spacing:8px;">
@@ -368,14 +445,15 @@ def build_email_html(status: dict, close: float, sma200: float,
   </div>
 </div>
 
-<!-- 매수 집행 규칙 -->
+<!-- 운용 규칙 -->
 <div style="margin:20px 0;padding:16px;background:#111827;border-radius:12px;border:1px solid #1e293b;">
-  <div style="color:#94a3b8;font-size:13px;font-weight:600;margin-bottom:8px;">📋 매수 집행 규칙 (40:40:20 DCA)</div>
+  <div style="color:#94a3b8;font-size:13px;font-weight:600;margin-bottom:8px;">📋 운용 규칙 ("50%로 되돌리기만")</div>
   <div style="color:#64748b;font-size:12px;line-height:1.6;">
-    • <b style="color:#e2e8f0;">1차 매수</b>: 1단계 신호 시 현금 40%를 8주간 매주 1/8 매수<br>
-    • <b style="color:#e2e8f0;">2차 매수</b>: 8주 후 신호 유지 시 남은 현금 40%를 8주 추가 매수<br>
-    • <b style="color:#e2e8f0;">3차 매수</b>: 잔여 20% + 배당금으로 소진 시까지 매수<br>
-    • <b style="color:#e2e8f0;">자금 순서</b>: CMA → 단기국채(0046A0) 매도 → 418660 매수
+    • <b style="color:#e2e8f0;">목표</b>: K-SCHD 40% / K-QLD 50% / K-SGOV 10% (총자산 기준)<br>
+    • <b style="color:#e2e8f0;">투자일</b>: 투자금은 목표보다 부족한 종목부터 산다<br>
+    • <b style="color:#e2e8f0;">60% 초과</b>: K-QLD가 60%를 넘으면 신호와 상관없이 바로 50%로<br>
+    • <b style="color:#e2e8f0;">12월</b>: 5%p 넘게 벗어난 종목만 목표로 (K-QLD 부족분은 예수금 → K-SGOV → K-SCHD)<br>
+    • <b style="color:#e2e8f0;">신호</b>: 참고용. 떨어졌다고 50% 넘게 더 사지 않는다
   </div>
 </div>
 
@@ -394,16 +472,16 @@ def send_email(subject: str, html_body: str, dry_run: bool = False) -> None:
     gmail_address = os.environ.get("GMAIL_ADDRESS", "")
     gmail_password = os.environ.get("GMAIL_APP_PASSWORD", "")
 
-    if not gmail_address or not gmail_password:
+    if (not gmail_address or not gmail_password) and not dry_run:
         print("⚠️  GMAIL_ADDRESS 또는 GMAIL_APP_PASSWORD 환경변수가 설정되지 않았습니다.")
-        if dry_run:
-            print("   (--dry-run 모드이므로 계속 진행합니다)")
-            return
         print("   이메일 발송을 건너뜁니다.")
         return
 
     if dry_run:
-        print(f"\n📧 [DRY-RUN] 이메일 발송 시뮬레이션")
+        PREVIEW_DIR.mkdir(exist_ok=True)
+        n = len(list(PREVIEW_DIR.glob("*.html"))) + 1
+        (PREVIEW_DIR / f"{n:02d}.html").write_text(f"<!-- {subject} -->\n" + html_body, encoding="utf-8")
+        print(f"\n📧 [DRY-RUN] 이메일 발송 시뮬레이션 → preview/{n:02d}.html")
         print(f"   To: {gmail_address}")
         print(f"   Subject: {subject}")
         print(f"   Body length: {len(html_body)} chars")
@@ -413,6 +491,7 @@ def send_email(subject: str, html_body: str, dry_run: bool = False) -> None:
     msg["Subject"] = subject
     msg["From"] = gmail_address
     msg["To"] = gmail_address  # 자기 자신에게 발송
+    msg[isa_inbox.BOT_HEADER] = "1"  # 명령 메일로 다시 읽지 않도록 표시
 
     msg.attach(MIMEText(html_body, "html", "utf-8"))
 
@@ -431,8 +510,33 @@ def generate_dashboard_html(status: dict, close: float, sma200: float,
                             deviation: float, rsi: float, rsi_type: str,
                             margin: dict, history: list[dict],
                             last_updated: str, current_year: int,
-                            live_prices_json: str = "{}") -> str:
+                            live_prices_json: str = "{}",
+                            kqld: dict | None = None) -> str:
     """index.html 대시보드를 생성한다."""
+    # K-QLD(원화 기준) 카드 HTML
+    if kqld:
+        ks = kqld["status"]
+        comb = kqld["combined"]
+        k_dev_color = "#ff3860" if kqld["deviation"] < -10 else ("#ffaa00" if kqld["deviation"] < -5 else "#00d68f")
+        k_rsi_color = "#ff3860" if kqld["rsi"] < 42 else ("#ffaa00" if kqld["rsi"] < 48 else "#00d68f")
+        kqld_section = f'''
+        <!-- K-QLD (원화 기준) -->
+        <div class="glass-card" id="kqld-section" style="margin-bottom:1.5rem;border:1px solid {ks['color']}66;">
+            <div class="metric-title">K-QLD 418660 (원화 기준) · 기준일 {kqld['date']}</div>
+            <div style="font-size:1.6rem;font-weight:700;color:{ks['color']};margin:0.3rem 0;">{ks['emoji']} {ks['name']}</div>
+            <div class="metrics-grid" style="margin:0.8rem 0 0;">
+                <div><div class="metric-sub">종가 / 200일선</div><div class="metric-value" style="font-size:1.3rem;">{kqld['close']:,.0f}원</div><div class="metric-sub">SMA200 {kqld['sma200']:,.0f}원</div></div>
+                <div><div class="metric-sub">200일선 괴리율</div><div class="metric-value" style="font-size:1.3rem;color:{k_dev_color}">{kqld['deviation']:+.2f}%</div><div class="metric-sub">1단계까지 {kqld['margin']['deviation_margin']:.2f}%p</div></div>
+                <div><div class="metric-sub">주봉 RSI</div><div class="metric-value" style="font-size:1.3rem;color:{k_rsi_color}">{kqld['rsi']:.1f}</div><div class="metric-sub">1단계까지 {kqld['margin']['rsi_margin']:.1f}pt</div></div>
+            </div>
+            <div style="margin-top:1rem;padding-top:0.8rem;border-top:1px solid rgba(148,163,184,0.2);">
+                <b>종합: {comb['emoji']} {comb['label']}</b>
+                <div class="metric-sub" style="margin-top:0.3rem;">{comb['desc']}</div>
+            </div>
+        </div>'''
+    else:
+        kqld_section = '''
+        <div class="glass-card" id="kqld-section" style="margin-bottom:1.5rem;"><div class="metric-title">K-QLD 418660 (원화 기준)</div><div class="metric-sub">오늘은 K-QLD 데이터를 가져오지 못했습니다.</div></div>'''
     # 차트 데이터 (최근 30일)
     chart_json = json.dumps(history[-30:], ensure_ascii=False)
 
@@ -684,6 +788,7 @@ def generate_dashboard_html(status: dict, close: float, sma200: float,
         <!-- 상태 히어로 카드 -->
         <div class="glass-card hero-card" id="hero-status">
             <div class="hero-emoji">{status['emoji']}</div>
+            <div class="metric-sub">QLD (달러 기준)</div>
             <div class="hero-title">{status['name']}</div>
             <div class="hero-desc">{status['description']}</div>
         </div>
@@ -706,6 +811,8 @@ def generate_dashboard_html(status: dict, close: float, sma200: float,
                 <div class="metric-sub">임계: 48 / 42 / 36</div>
             </div>
         </div>
+
+{kqld_section}
 
         <!-- 1단계 마진 프로그레스바 -->
         <div class="progress-section">
@@ -813,12 +920,10 @@ def generate_dashboard_html(status: dict, close: float, sma200: float,
                     <table class="guide-table">
                         <thead><tr><th>구분</th><th>자산</th><th>비중</th></tr></thead>
                         <tbody>
-                            <tr><td>🔵 주력</td><td>418660 TIGER 미국나스닥100레버리지(합성)</td><td>60%</td></tr>
-                            <tr><td>🟢 실탄</td><td>486290 TIGER 미국나스닥100타겟데일리커버드콜</td><td>30%</td></tr>
-                            <tr><td>🟡 직투</td><td>DGRO iShares Core Dividend Growth ETF</td><td>10%</td></tr>
-                            <tr><td colspan="3" style="padding-top:1rem;font-weight:600;color:var(--text-primary);">현금성 자산 (30%)</td></tr>
-                            <tr><td>💰 국채</td><td>0046A0 TIGER 미국초단기국채</td><td>80%</td></tr>
-                            <tr><td>💵 현금</td><td>CMA 통장</td><td>20%</td></tr>
+                            <tr><td>🟢 방어·배당</td><td>K-SCHD · 458730 TIGER 미국배당다우존스</td><td>40%</td></tr>
+                            <tr><td>🔵 공격</td><td>K-QLD · 418660 TIGER 미국나스닥100레버리지(합성)</td><td>50%</td></tr>
+                            <tr><td>💰 대기·현금</td><td>K-SGOV · 0046A0 TIGER 미국초단기국채</td><td>10%</td></tr>
+                            <tr><td colspan="3" style="padding-top:1rem;font-size:0.85rem;">운용: ① 투자일마다 투자금은 목표보다 부족한 종목부터 ② K-QLD가 60%를 넘으면 신호와 상관없이 바로 50%로 ③ 매년 12월 5%p 넘게 벗어난 종목만 목표로 (K-QLD 부족분은 예수금 → K-SGOV → K-SCHD). 떨어졌다고 50% 넘게 더 사지 않아요.</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -826,25 +931,7 @@ def generate_dashboard_html(status: dict, close: float, sma200: float,
 
             <div class="accordion-item">
                 <div class="accordion-header" onclick="toggleAccordion(this)">
-                    <span>📐 분할 매수 집행 규칙 (40:40:20 DCA)</span>
-                    <svg class="accordion-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
-                </div>
-                <div class="accordion-content">
-                    <table class="guide-table">
-                        <thead><tr><th>단계</th><th>규모</th><th>실행 방법</th></tr></thead>
-                        <tbody>
-                            <tr><td>1차 매수</td><td>현금의 40%</td><td>1단계 신호 진입 시, 8주간 매주 1/8씩 기계적 매수</td></tr>
-                            <tr><td>2차 매수</td><td>남은 현금의 40%</td><td>8주 경과 후 신호 유지 시, 2차 8주(총 16주) 매수</td></tr>
-                            <tr><td>3차 매수</td><td>잔여 20% + 배당금</td><td>커버드콜/DGRO 배당금을 매월 신규 실탄으로 소진까지 매수</td></tr>
-                        </tbody>
-                    </table>
-                    <p style="margin-top:1rem;font-size:0.85rem;"><strong>자금 인출 순서:</strong> CMA 잔액 우선 → 부족 시 0046A0(단기국채) 매도 → 418660 매수</p>
-                </div>
-            </div>
-
-            <div class="accordion-item">
-                <div class="accordion-header" onclick="toggleAccordion(this)">
-                    <span>🚦 상태 매트릭스 가이드</span>
+                    <span>🚦 신호 가이드 (참고용 — 매수량은 바꾸지 않아요)</span>
                     <svg class="accordion-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
                 </div>
                 <div class="accordion-content">
@@ -852,10 +939,10 @@ def generate_dashboard_html(status: dict, close: float, sma200: float,
                         <thead><tr><th>상태</th><th>조건</th><th>설명</th></tr></thead>
                         <tbody>
                             <tr><td>🟢 안정</td><td>괴리율 &gt; -5% AND RSI &gt; 55</td><td>평시 관망 구간</td></tr>
-                            <tr><td>🟡 관심</td><td>안정·1단계 조건에 모두 해당하지 않는 나머지</td><td>매수 임계치 근접, 현금 점검</td></tr>
-                            <tr><td>🟠 1단계</td><td>RSI ≤ 48 AND 괴리율 ≤ -10%</td><td>분할 매수 시작 (8주 1차)</td></tr>
-                            <tr><td>🔴 2단계</td><td>RSI ≤ 42 AND 괴리율 ≤ -18%</td><td>매력적 매수 (계획 이행)</td></tr>
-                            <tr><td>🟣 3단계</td><td>RSI ≤ 36 AND 괴리율 ≤ -26%</td><td>역사적 바닥 (전력 매수)</td></tr>
+                            <tr><td>🟡 관심</td><td>안정·1단계 조건에 모두 해당하지 않는 나머지</td><td>조정 근처 (참고용)</td></tr>
+                            <tr><td>🟠 1단계</td><td>RSI ≤ 48 AND 괴리율 ≤ -10%</td><td>조정 진입 (참고용)</td></tr>
+                            <tr><td>🔴 2단계</td><td>RSI ≤ 42 AND 괴리율 ≤ -18%</td><td>큰 조정 (참고용)</td></tr>
+                            <tr><td>🟣 3단계</td><td>RSI ≤ 36 AND 괴리율 ≤ -26%</td><td>깊은 하락 (참고용, 바닥 아님)</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -1111,12 +1198,11 @@ def generate_dashboard_html(status: dict, close: float, sma200: float,
             '#ff3860','#06b6d4','#f43f5e','#84cc16','#a78bfa',
             '#fb923c','#22d3ee','#e879f9','#facc15','#4ade80'
         ];
+        // [2026-11] ISA 3종 목표비중 (v6: K-SCHD 40 / K-QLD 50 / K-SGOV 10) — Python TARGET_WEIGHTS와 같게 유지
         const PF_TARGET = [
-            {{ ticker:'418660', name:'418660 TIGER 레버리지', pct:42, color:'#3b82f6' }},
-            {{ ticker:'486290', name:'486290 TIGER 커버드콜', pct:21, color:'#00d68f' }},
-            {{ ticker:'DGRO', name:'DGRO 배당성장', pct:7, color:'#ffaa00' }},
-            {{ ticker:'0046A0', name:'0046A0 초단기국채', pct:24, color:'#ff6b35' }},
-            {{ ticker:'CASH', name:'CMA 현금', pct:6, color:'#b86bff' }},
+            {{ ticker:'458730', name:'K-SCHD (458730 TIGER 미국배당다우존스)', pct:40, color:'#00d68f' }},
+            {{ ticker:'418660', name:'K-QLD (418660 TIGER 나스닥100레버리지)', pct:50, color:'#3b82f6' }},
+            {{ ticker:'0046A0', name:'K-SGOV (0046A0 TIGER 미국초단기국채)', pct:10, color:'#ff6b35' }},
         ];
 
         function pfLoad() {{
@@ -1454,19 +1540,125 @@ def generate_dashboard_html(status: dict, close: float, sma200: float,
 </html>"""
 
 
+# ─── ISA 비중관리 (isa.py / isa_mail.py / isa_inbox.py) ────────────────────────
+# ⚠️ 공개 저장소라 Actions 로그도 공개된다. 보유 수량·금액·비중은 print 하지 않는다.
+
+def fetch_isa_prices(now_kst: datetime) -> tuple[dict, dict, dict]:
+    """3종목 최근 종가 / 전일 종가 / 1주 전 종가 (원)."""
+    prices, prev, week = {}, {}, {}
+    for code in isa.CODES:
+        try:
+            df = fetch_krx_data(code, now_kst, period_days=40)
+        except Exception as e:
+            print(f"⚠️  {code} 시세 실패: {e}")
+            continue
+        c = df["Close"]
+        prices[code] = float(c.iloc[-1])
+        if len(c) >= 2:
+            prev[code] = float(c.iloc[-2])
+        old = c[c.index.date <= (c.index[-1] - timedelta(days=7)).date()]
+        if len(old):
+            week[code] = float(old.iloc[-1])
+    return prices, prev, week
+
+
+def fetch_market(df_k: pd.DataFrame | None) -> dict:
+    m = {"ndx_from_high": None, "usdkrw": None, "kqld_from_high": None}
+    try:
+        ndx = fetch_price_data("^NDX", 400)["Close"].iloc[-252:]
+        m["ndx_from_high"] = (float(ndx.iloc[-1]) / float(ndx.max()) - 1) * 100
+    except Exception as e:
+        print(f"⚠️  나스닥100 실패: {e}")
+    try:
+        m["usdkrw"] = float(fetch_price_data("KRW=X", 10)["Close"].iloc[-1])
+    except Exception as e:
+        print(f"⚠️  환율 실패: {e}")
+    if df_k is not None and len(df_k):
+        k = df_k["Close"].iloc[-252:]
+        m["kqld_from_high"] = (float(k.iloc[-1]) / float(k.max()) - 1) * 100
+    return m
+
+
+def make_ctx(today, holdings, prices, prev=None, week=None, status=None, kqld=None, market=None) -> dict:
+    has = isa_inbox.has_balance(holdings)
+    return {
+        "today": today, "holdings": holdings or {}, "has_balance": has,
+        "pf": isa.valuation(holdings, prices) if has else None,
+        "prices": prices, "prev_prices": prev or {}, "week_prices": week or {},
+        "qld_status": status, "k_status": kqld["status"] if kqld else None,
+        "combined": kqld["combined"] if kqld else None, "market": market or {},
+    }
+
+
+def send_inbox_events(events: list[dict], holdings: dict | None, now_kst: datetime, dry_run: bool) -> None:
+    """메일 명령 처리 결과(잔고 인식, 수정, 투자금 변경, 오류)를 메일로 알린다."""
+    if not events:
+        return
+    prices, _, _ = fetch_isa_prices(now_kst)
+    ctx = make_ctx(now_kst.date(), holdings, prices)
+    for ev in events:
+        if ev["kind"] in ("balance", "fix") and ctx["has_balance"]:
+            subj, html = isa_mail.confirm_email(ctx["holdings"], ev, ctx["pf"])
+        elif ev["kind"] == "contrib":
+            subj, html = isa_mail.payday_email(ctx, ev["amount"], ev["invest_day"], changed=True)
+        else:
+            subj, html = isa_mail.error_email(ev.get("msg", "알 수 없는 오류"))
+        send_email(subj, html, dry_run=dry_run)
+
+
+def run_inbox(now_kst: datetime, dry_run: bool) -> dict | None:
+    holdings = isa_inbox.load_holdings()
+    holdings, events = isa_inbox.process_inbox(holdings, dry_run)
+    send_inbox_events(events, holdings, now_kst, dry_run)
+    return holdings
+
+
+def run_payday(now_kst: datetime, dry_run: bool) -> None:
+    """월급날 저녁: '내일 살 것' 배분표. 월급날이 아니면 아무것도 하지 않는다."""
+    today = now_kst.date()
+    pay = isa.payday(today.year, today.month)
+    if today != pay:
+        print(f"ℹ️  오늘은 월급날이 아님 (이번 달 월급날 {pay}) → 종료")
+        return
+    holdings = run_inbox(now_kst, dry_run)
+    inv = isa.invest_day(today.year, today.month)
+    prices, _, _ = fetch_isa_prices(now_kst)
+    ctx = make_ctx(today, holdings, prices)
+    subj, html = isa_mail.payday_email(ctx, isa.contribution_for(holdings, inv), inv)
+    send_email(subj, html, dry_run=dry_run)
+
+
 # ─── 메인 실행 ─────────────────────────────────────────────────────────────────
 
 def main():
-    parser = argparse.ArgumentParser(description="QLD 자동 매수 알림 시스템")
+    parser = argparse.ArgumentParser(description="ISA K-QLD 비중관리 + QLD/K-QLD 신호 알림")
     parser.add_argument("--dry-run", action="store_true",
-                        help="이메일 발송 없이 테스트 실행")
+                        help="이메일 발송 없이 테스트 실행 (메일은 preview/ 폴더에 저장)")
+    parser.add_argument("--mode", choices=["daily", "payday", "inbox"], default="daily",
+                        help="daily: 데일리/토요일 주간 메일 + 대시보드, payday: 월급날 저녁 배분표, inbox: 명령 메일 확인")
+    parser.add_argument("--as-of", help="(시험용, --dry-run 전용) 오늘 날짜를 YYYY-MM-DD로 가정")
     args = parser.parse_args()
 
     now_kst = datetime.now(KST)
+    if args.as_of:
+        if not args.dry_run:
+            parser.error("--as-of 는 --dry-run 과 함께만 쓸 수 있어요")
+        d = datetime.fromisoformat(args.as_of)
+        now_kst = now_kst.replace(year=d.year, month=d.month, day=d.day)
     weekday = now_kst.weekday()
 
-    print(f"🕐 실행 시간: {now_kst.strftime('%Y-%m-%d %H:%M:%S KST')}")
+    print(f"🕐 실행 시간: {now_kst.strftime('%Y-%m-%d %H:%M:%S KST')} · 모드 {args.mode}")
     print(f"   요일: {['월','화','수','목','금','토','일'][weekday]}요일")
+
+    if args.mode == "inbox":
+        run_inbox(now_kst, args.dry_run)
+        return
+    if args.mode == "payday":
+        run_payday(now_kst, args.dry_run)
+        return
+
+    # ── 0. 명령 메일 먼저 반영 (잔고 캡처, 수정, 투자금 변경) ──
+    holdings = run_inbox(now_kst, args.dry_run)
 
     # ── 1. 데이터 수집 ──
     print("\n📡 QLD 데이터 수집 중...")
@@ -1505,38 +1697,72 @@ def main():
     print(f"   {status['description']}")
     print(f"   1단계까지: 괴리율 {margin['deviation_margin']:.2f}%p / RSI {margin['rsi_margin']:.1f}pt")
 
-    # ── 3.5 포트폴리오 기준가 사전 수집 (웹페이지 주입용) ──
-    print("\n📡 포트폴리오 기준가 사전 수집 중...")
-    target_tickers = ["418660.KS", "486290.KS", "DGRO", "0046A0.KS"]
-    live_prices = {}
+    # ── 3.2 K-QLD(418660, 원화 기준) 지표 — 실패해도 QLD 알림은 계속 진행 ──
+    kqld = None
+    df_k = None
     try:
-        usd_krw = float(yf.Ticker("KRW=X").history(period="1d")["Close"].iloc[-1])
-        live_prices["USDKRW"] = usd_krw
-    except:
-        live_prices["USDKRW"] = 1380.0
-        
-    for t in target_tickers:
-        try:
-            p = float(yf.Ticker(t).history(period="1d")["Close"].iloc[-1])
-            live_prices[t.replace(".KS", "")] = p
-        except:
-            pass
+        df_k = fetch_kqld_data(now_kst)
+        k_close = float(df_k["Close"].iloc[-1])
+        k_sma200 = calc_sma200(df_k)
+        k_dev = calc_deviation(k_close, k_sma200)
+        k_rsi, _ = calc_weekly_rsi(df_k, now_kst)
+        k_status = determine_status(k_dev, k_rsi)
+        kqld = {
+            "date": df_k.index[-1].strftime("%Y-%m-%d"),
+            "close": k_close, "sma200": k_sma200, "deviation": k_dev, "rsi": k_rsi,
+            "status": k_status,
+            "combined": combine_signal(status, k_status),
+            "margin": calc_margin_to_stage1(k_dev, k_rsi),
+        }
+        print(f"\n🇰🇷 K-QLD(418660): {k_close:,.0f}원 / SMA200 {k_sma200:,.0f}원 / 괴리율 {k_dev:+.2f}% / RSI {k_rsi:.1f} → {k_status['emoji']} {k_status['name']}")
+        print(f"   종합: {kqld['combined']['emoji']} {kqld['combined']['label']}")
+    except Exception as e:
+        print(f"⚠️  K-QLD 지표 계산 실패 (QLD 알림은 계속): {e}")
+
+    # ── 3.5 3종목 시세 + 시장 (메일·대시보드 계산기용) ──
+    print("\n📡 3종목 시세 / 시장 데이터 수집 중...")
+    prices, prev_prices, week_prices = fetch_isa_prices(now_kst)
+    market = fetch_market(df_k)
+    live_prices = dict(prices)
+    live_prices["USDKRW"] = market["usdkrw"] or 1380.0
+
+    # ── 3.6 ISA 할 일 (보유 수량은 로그에 남기지 않음) ──
+    ctx = make_ctx(now_kst.date(), holdings, prices, prev_prices, week_prices, status, kqld, market)
+    todo = isa_mail.todos(ctx)
+    print(f"⚖️  ISA 할 일 {len(todo)}건 (내용은 메일로만)")
 
     # ── 4. 이력 업데이트 ──
     date_str = now_kst.strftime("%Y-%m-%d")
-    history = update_history(date_str, close, sma200, deviation, rsi, status["name"])
+    extra = None
+    if kqld:
+        extra = {
+            "k_date": kqld["date"],
+            "k_close": round(kqld["close"], 0),
+            "k_sma200": round(kqld["sma200"], 0),
+            "k_deviation": round(kqld["deviation"], 2),
+            "k_rsi": round(kqld["rsi"], 1),
+            "k_status": kqld["status"]["name"],
+            "combined": kqld["combined"]["code"],
+        }
+    history = update_history(date_str, close, sma200, deviation, rsi, status["name"], extra)
     print(f"💾 이력 저장 완료 ({len(history)}일치)")
 
-    # ── 5. 이메일 발송 ──
-    if weekday == 5:  # 토요일
-        subject = f"[확정] QLD 주말 확정 리포트 {status['emoji']} {status['name']}"
+    # ── 5. 이메일 발송: 평일 데일리, 토요일 주간 요약, 일요일 없음 ──
+    if weekday == 6:
+        print("ℹ️  일요일은 메일을 보내지 않음")
     else:
-        subject = f"[진행형] QLD 데일리 모니터링 {status['emoji']} {status['name']}"
+        if weekday == 5:
+            subject, isa_html = isa_mail.weekly_email(ctx, todo)
+            title = "🗓️ ISA 주간 요약"
+        else:
+            subject = isa_mail.daily_subject(ctx, todo)
+            isa_html = isa_mail.build_isa_section(ctx, todo)
+            title = "📊 ISA 데일리"
+        email_html = build_email_html(status, close, sma200, deviation, rsi, rsi_type, margin, now_kst, history, kqld,
+                                      isa_html=isa_html, title=title)
+        send_email(subject, email_html, dry_run=args.dry_run)
 
-    email_html = build_email_html(status, close, sma200, deviation, rsi, rsi_type, margin, now_kst, history)
-    send_email(subject, email_html, dry_run=args.dry_run)
-
-    # ── 6. HTML 대시보드 생성 ──
+    # ── 6. HTML 대시보드 생성 (공개 페이지: 보유 수량·금액은 넣지 않음) ──
     last_updated = now_kst.strftime("%Y-%m-%d %H:%M KST")
 
     html_content = generate_dashboard_html(
@@ -1544,7 +1770,8 @@ def main():
         deviation=deviation, rsi=rsi, rsi_type=rsi_type,
         margin=margin, history=history,
         last_updated=last_updated, current_year=now_kst.year,
-        live_prices_json=json.dumps(live_prices)
+        live_prices_json=json.dumps(live_prices),
+        kqld=kqld,
     )
 
     with open(OUTPUT_HTML_PATH, "w", encoding="utf-8") as f:

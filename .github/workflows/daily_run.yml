@@ -1,20 +1,34 @@
-name: QLD Daily Monitor
+name: ISA Daily Monitor
 
 on:
   schedule:
-    # UTC 23:00 (일~목) = KST 08:00 (월~금) 실행
-    - cron: '0 23 * * 0-4'
-    # UTC 23:00 (금) = KST 08:00 (토) → 확정 주봉 리포트
-    - cron: '0 23 * * 5'
+    # UTC 22:07 (일~금) = KST 07:07 (월~토): 평일 데일리, 토요일 주간 요약
+    - cron: '7 22 * * 0-5'
+    # UTC 09:07 (월~금) = KST 18:07: 월급날 저녁 배분표 (월급날이 아니면 바로 끝남)
+    - cron: '7 9 * * 1-5'
+    # 2시간마다: 명령 메일 확인 ([잔고] 캡처, [수정], [투자금])
+    - cron: '37 */2 * * *'
   workflow_dispatch:
-    # 수동 실행 버튼 (테스트용)
+    inputs:
+      mode:
+        description: '실행 모드'
+        type: choice
+        options: [daily, payday, inbox]
+        default: daily
 
 permissions:
   contents: write
 
+# 메일함 확인과 데일리가 동시에 holdings를 고치지 않도록 한 번에 하나만
+concurrency:
+  group: isa-monitor
+  cancel-in-progress: false
+
 jobs:
   monitor:
     runs-on: ubuntu-latest
+    env:
+      MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.mode || (github.event.schedule == '7 9 * * 1-5' && 'payday') || (github.event.schedule == '37 */2 * * *' && 'inbox') || 'daily' }}
 
     steps:
       - name: Checkout repository
@@ -31,13 +45,20 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Run QLD monitor
+      # ⚠️ 공개 저장소라 이 로그는 누구나 볼 수 있다. 코드는 보유 수량·금액을 출력하지 않는다.
+      - name: Run ISA monitor
         env:
           GMAIL_ADDRESS: ${{ secrets.GMAIL_ADDRESS }}
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
-        run: python main.py
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          HOLDINGS_PAT: ${{ secrets.HOLDINGS_PAT }}
+          HOLDINGS_JSON: ${{ vars.HOLDINGS_JSON }}
+          PAYDAY_OVERRIDE: ${{ vars.PAYDAY_OVERRIDE }}
+          GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}
+        run: python main.py --mode "$MODE"
 
       - name: Commit and push updated files
+        if: env.MODE == 'daily'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
