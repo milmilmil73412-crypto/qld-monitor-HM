@@ -6,12 +6,28 @@ ctx 키 (main.py에서 만든다)
   qld_status, k_status(dict|None), combined(dict|None), market{ndx_from_high, usdkrw, kqld_from_high}
 """
 
+import os
 from datetime import date, timedelta
 
 import isa
 from isa import CODES, NAMES, TARGET_WEIGHTS, KQLD
 
 WD = ["월", "화", "수", "목", "금", "토", "일"]
+
+
+def page_url() -> str:
+    """현황표 주소. Actions에서는 GITHUB_REPOSITORY(대소문자 그대로)로 만든다."""
+    repo = os.environ.get("GITHUB_REPOSITORY", "milmilmil73412-crypto/qld-monitor-HM")
+    owner, name = repo.split("/", 1)
+    return f"https://{owner.lower()}.github.io/{name}/isa.html"
+
+
+def link_card() -> str:
+    u = page_url()
+    return card("✏️ 현황표에서 바로 고치기",
+                f'<a href="{u}" style="display:inline-block;margin:2px 0 6px;padding:10px 16px;border-radius:8px;'
+                f'background:#1f6f55;color:#ffffff;font-weight:700;text-decoration:none;">현황표 열기</a><br>'
+                f'<span style="color:{C_SUB};font-size:13px;">수량·예수금·이번 투자금을 고치고 저장하면 바로 반영돼요. 배분표도 그 자리에서 다시 계산돼요.</span>')
 SIGNAL_LEVELS = ("1단계", "2단계", "3단계")
 
 # ─── 공통 조각 ─────────────────────────────────────────────────────────────────
@@ -245,7 +261,8 @@ def payday_email(ctx: dict, amount: int, invest_d: date, changed: bool = False) 
                  "목표(40/50/10)보다 부족한 종목부터 1주 단위로 나눴어요." + plan_table(plan, prices)
                  + _room_warning(h, today, amount) + stale, border="#00d68f")
             + card("금액이 다르면", "본인 Gmail로 <b>투자금 350만</b> (또는 3500000) 한 줄만 써서 보내면 다시 계산해서 보내 드려요."
-                   " 가격은 오늘 종가 기준이라, 내일 실제 가격과 조금 다를 수 있어요."))
+                   " 가격은 오늘 종가 기준이라, 내일 실제 가격과 조금 다를 수 있어요.")
+            + link_card())
     subj = f"[ISA {kind}] 💰 {when} 살 것 · " + " / ".join(f"{NAMES[c]} {plan['shares'][c]}주" for c in CODES)
     return subj, page(f"💰 {when} 살 것", f"투자일 {d_str(invest_d)} · 계산 {d_str(today)}", body)
 
@@ -293,6 +310,7 @@ def weekly_email(ctx: dict, todo: list[dict]) -> tuple[str, str]:
     parts.append(card(f"다음 주 일정 ({d_str(mon)}~{d_str(sun)})", "<br>".join(ev) if ev else "정해진 일정 없음"))
     parts.append(_market_card(ctx))
     parts.append(card("한 줄", one_liner(ctx)))
+    parts.append(link_card())
     w = f"{pf['weights'][KQLD] * 100:.1f}%" if pf else "?%"
     mark = todo[0]["mark"] + " " if todo else ""
     subj = f"[ISA 주간] {mark}{head} · K-QLD {w} · QLD {_sig(ctx['qld_status'])} / K-QLD {_sig(ctx.get('k_status'))}"
@@ -320,7 +338,8 @@ def confirm_email(h: dict, ev: dict, pf: dict | None) -> tuple[str, str]:
     title = "✏️ 수정 반영" if ev["kind"] == "fix" else "📷 잔고 인식 결과"
     body = (card(f"{title} (잔고 {h.get('updated', '?')} 기준)", table(["종목", "수량", "평가액(최근 종가)"], rows) + total + warns,
                  border="#ffaa00" if ev.get("warns") else C_LINE)
-            + card("틀리면", FIX_HELP)
+            + card("틀리면", FIX_HELP + "<br>또는 아래 현황표에서 바로 고쳐도 돼요.")
+            + link_card()
             + card("개인정보", "캡처는 Google Gemini로 읽어요. 무료 등급은 입력이 구글 서비스 개선에 쓰일 수 있으니, 계좌번호는 가리고 보내 주세요."))
     subj = f"[ISA] {title} · " + " / ".join(f"{NAMES[c]} {h['holdings'].get(c, 0)}주" for c in CODES)
     if ev.get("warns"):

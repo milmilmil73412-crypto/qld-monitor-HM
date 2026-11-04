@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>ISA 현황표</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;700&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* 한 줄 세로 구성: 연결 → 내 현황(입력) → 비중 → 이번 투자일 배분 → 저장. 폰에서 엄지로 고치기 쉽게 */
+:root {
+  --bg: #f3f5f2; --surface: #ffffff; --ink: #18211d; --muted: #5d6b64; --line: #d4dcd6;
+  --accent: #1f6f55; --accent-soft: #e2f0ea; --warn: #9a5b00; --warn-soft: #fbf0dc;
+  --bad: #b3261e; --bad-soft: #fbe5e3; --field: #f8faf8;
+  --font-body: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  --font-num: "JetBrains Mono", ui-monospace, Menlo, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111613; --surface: #1a211d; --ink: #e6ece8; --muted: #9aa8a1; --line: #2f3a34;
+    --accent: #5fc39c; --accent-soft: #1d3329; --warn: #e2a548; --warn-soft: #352a17;
+    --bad: #f2867d; --bad-soft: #3a1f1c; --field: #141a17; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #111613; --surface: #1a211d; --ink: #e6ece8; --muted: #9aa8a1; --line: #2f3a34;
+  --accent: #5fc39c; --accent-soft: #1d3329; --warn: #e2a548; --warn-soft: #352a17;
+  --bad: #f2867d; --bad-soft: #3a1f1c; --field: #141a17; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+body {
+  margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 16px; line-height: 1.6;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 24px 64px;
+}
+.wrap { max-width: 640px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+h1 { margin: 0; font-size: 1.5rem; text-wrap: balance; }
+h2 { margin: 0; font-size: 1.05rem; }
+p { margin: 0; }
+.sub { color: var(--muted); font-size: .9rem; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.num { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+label { font-size: .85rem; color: var(--muted); }
+input {
+  font: inherit; color: var(--ink); background: var(--field); border: 1px solid var(--line); border-radius: 8px;
+  padding: 10px 12px; width: 100%; min-width: 0;
+}
+input.num { text-align: right; }
+input:focus-visible, button:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button {
+  font: inherit; font-weight: 700; border-radius: 8px; padding: 11px 16px; border: 1px solid var(--accent);
+  background: var(--accent); color: var(--surface); cursor: pointer;
+}
+button.ghost { background: transparent; color: var(--accent); }
+button.small { padding: 6px 10px; font-size: .85rem; font-weight: 500; }
+button:disabled { opacity: .5; cursor: default; }
+.row { display: grid; grid-template-columns: 1fr 120px; gap: 10px; align-items: center; }
+.row .name b { display: block; }
+.row .name small { color: var(--muted); font-size: .8rem; }
+.other { display: grid; grid-template-columns: 1fr 130px 36px; gap: 8px; align-items: center; }
+.other button { padding: 6px 0; background: transparent; color: var(--muted); border-color: var(--line); }
+.tbl { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: .92rem; }
+th, td { padding: 8px 6px; border-top: 1px solid var(--line); text-align: right; white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; }
+th { border-top: 0; font-size: .78rem; color: var(--muted); font-weight: 500; }
+.bar { height: 10px; border-radius: 5px; background: var(--line); overflow: hidden; display: flex; }
+.bar i { display: block; height: 100%; }
+.pill { display: inline-block; font-size: .8rem; font-weight: 700; padding: 2px 10px; border-radius: 999px; }
+.ok { background: var(--accent-soft); color: var(--accent); }
+.warn { background: var(--warn-soft); color: var(--warn); }
+.bad { background: var(--bad-soft); color: var(--bad); }
+.note { padding: 12px 14px; border-radius: 8px; font-size: .93rem; }
+.actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.status { font-size: .92rem; }
+details summary { cursor: pointer; font-weight: 500; }
+ol { margin: 6px 0 0; padding-left: 1.2em; }
+code { font-family: var(--font-num); font-size: .85em; background: var(--accent-soft); color: var(--accent); padding: .05em .35em; border-radius: 4px; }
+.sticky {
+  position: sticky; bottom: max(12px, env(safe-area-inset-bottom, 0px)); z-index: 5;
+  background: var(--surface); border: 1px solid var(--accent); box-shadow: 0 4px 18px rgb(0 0 0 / .15);
+}
+@media (max-width: 420px) { .row { grid-template-columns: 1fr 108px; } .other { grid-template-columns: 1fr 112px 32px; } }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header style="display:flex;flex-direction:column;gap:4px;">
+    <div class="sub">NH 나무 ISA · 목표 K-SCHD 40 / K-QLD 50 / K-SGOV 10</div>
+    <h1>ISA 현황표</h1>
+    <p class="sub" id="priceInfo">가격 불러오는 중…</p>
+  </header>
+
+  <!-- 연결 -->
+  <section class="card" id="connectCard">
+    <h2>처음 한 번: 이 폰을 연결해요</h2>
+    <p class="sub">보유 수량은 공개되지 않는 저장소 변수에 있어요. 열쇠(토큰)를 한 번 넣으면 이 브라우저에만 저장되고, 다음부터는 바로 열려요.</p>
+    <details>
+      <summary>토큰 만드는 법 (약 2분)</summary>
+      <ol>
+        <li><code>github.com/settings/personal-access-tokens/new</code> 열기</li>
+        <li>이름: <code>isa-page</code> · 만료: 원하는 대로</li>
+        <li>Repository access: <b>Only select repositories</b> → <code>qld-monitor-HM</code></li>
+        <li>+ Add permissions → <b>Variables</b> → <b>Read and write</b></li>
+        <li>Generate token → <code>github_pat_…</code> 복사해서 아래에 붙여 넣기</li>
+      </ol>
+    </details>
+    <div style="display:flex;flex-direction:column;gap:6px;">
+      <label for="token">토큰</label>
+      <input id="token" type="password" autocomplete="off" placeholder="github_pat_…">
+    </div>
+    <div class="actions"><button id="connectBtn" type="button">연결하기</button><span class="status" id="connectMsg"></span></div>
+  </section>
+
+  <!-- 입력 -->
+  <section class="card" id="holdCard">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap;">
+      <h2>내 현황</h2><span class="sub" id="updatedInfo">아직 불러오지 않았어요 · 아래는 예시 값</span>
+    </div>
+    <div id="mainRows" style="display:flex;flex-direction:column;gap:10px;"></div>
+    <div class="row"><div class="name"><b>예수금</b><small>현금(원)</small></div><input id="cash" class="num" inputmode="numeric"></div>
+    <details id="othersBox">
+      <summary>기존 종목 (정리 대상) · <span id="othersSum" class="num">0원</span></summary>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-top:10px;">
+        <div class="other sub" style="font-size:.78rem;"><span>종목</span><span style="text-align:right">평가금액(원)</span><span></span></div>
+        <div id="otherRows" style="display:flex;flex-direction:column;gap:8px;"></div>
+        <div><button class="ghost small" id="addOther" type="button">+ 종목 추가</button></div>
+        <p class="sub">기존 종목은 서비스가 사거나 팔지 않아요. 총자산 계산에만 써요.</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- 비중 -->
+  <section class="card">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap;">
+      <h2>비중</h2><span id="kqldPill" class="pill ok">K-QLD –</span>
+    </div>
+    <div class="bar" id="bar" aria-hidden="true"></div>
+    <div class="tbl"><table id="wTable"></table></div>
+    <p class="sub" id="gapInfo"></p>
+  </section>
+
+  <!-- 배분 -->
+  <section class="card">
+    <h2 id="planTitle">다음 투자일에 살 것</h2>
+    <div class="row"><div class="name"><b>이번 투자금</b><small id="contribHint">기본 2,000,000원</small></div><input id="contrib" class="num" inputmode="numeric"></div>
+    <div class="tbl"><table id="planTable"></table></div>
+    <p class="sub" id="planInfo"></p>
+  </section>
+
+  <!-- 저장 -->
+  <section class="card sticky" id="saveCard">
+    <div class="actions">
+      <button id="saveBtn" type="button" disabled>저장하기</button>
+      <span class="status" id="saveMsg">고친 값이 없어요</span>
+    </div>
+  </section>
+
+  <p class="sub">저장하면 바로 반영돼요. 다음 데일리·월급날 메일부터 이 값으로 계산해요. 계좌번호나 개인 정보는 저장하지 않아요.</p>
+</div>
+
+<script>
+(() => {
+  const CODES = ["458730", "418660", "0046A0"];
+  const NAMES = { "458730": "K-SCHD", "418660": "K-QLD", "0046A0": "K-SGOV" };
+  const FULL = { "458730": "TIGER 미국배당다우존스", "418660": "TIGER 미국나스닥100레버리지(합성)", "0046A0": "TIGER 미국초단기국채" };
+  const TW = { "458730": 0.40, "418660": 0.50, "0046A0": 0.10 };
+  const COLORS = { "458730": "var(--accent)", "418660": "var(--warn)", "0046A0": "var(--muted)" };
+  const UPPER = 0.60, VAR = "HOLDINGS_JSON", TOKEN_KEY = "isa_token";
+  const owner = location.hostname.endsWith(".github.io") ? location.hostname.split(".")[0] : "milmilmil73412-crypto";
+  const repo = location.hostname.endsWith(".github.io") ? (location.pathname.split("/")[1] || "qld-monitor-HM") : "qld-monitor-HM";
+  const API = `https://api.github.com/repos/${owner}/${repo}/actions/variables/${VAR}`;
+  const $ = (id) => document.getElementById(id);
+  const won = (v) => Math.round(v).toLocaleString("ko-KR") + "원";
+  const pct = (v) => (v * 100).toFixed(1) + "%";
+  const parseNum = (s) => {
+    s = String(s || "").replace(/[,\s원주]/g, "");
+    let m = s.match(/^(?:(\d+(?:\.\d+)?)억)?(?:(\d+(?:\.\d+)?)만)?(\d+)?$/);
+    if (!m || !(m[1] || m[2] || m[3])) return NaN;
+    let v = 0; if (m[1]) v += +m[1] * 1e8; if (m[2]) v += +m[2] * 1e4; if (m[3]) v += +m[3];
+    return Math.round(v);
+  };
+  const store = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+                  set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
+                  del(k) { try { localStorage.removeItem(k); } catch (e) {} } };
+
+  // ── isa.py allocate() 와 같은 계산 ──
+  function allocate(values, prices, funds, totalAfter) {
+    const need = {}; let s = 0;
+    for (const c of CODES) { need[c] = Math.max(0, TW[c] * totalAfter - values[c]); s += need[c]; }
+    const amt = {};
+    if (s >= funds && s > 0) for (const c of CODES) amt[c] = funds * need[c] / s;
+    else for (const c of CODES) amt[c] = need[c] + (funds - s) * TW[c];
+    const shares = {}; let left = funds;
+    for (const c of CODES) { shares[c] = Math.floor(amt[c] / prices[c] + 1e-9); left -= shares[c] * prices[c]; }
+    for (;;) {
+      const afford = CODES.filter((c) => prices[c] <= left + 1e-9);
+      if (!afford.length) break;
+      const c = afford.reduce((a, b) => (amt[b] - shares[b] * prices[b] > amt[a] - shares[a] * prices[a] ? b : a));
+      shares[c] += 1; left -= prices[c];
+    }
+    return { amt, shares, left };
+  }
+
+  // ── 상태 ──
+  let meta = null;           // data/prices.json
+  let original = null;       // 저장소에서 읽은 holdings 전체 (_inbox 등 보존)
+  let connected = false;
+  const sample = { updated: null, cash_krw: 264533, holdings: { "418660": 210, "458730": 0, "0046A0": 0 },
+                   others: [{ name: "기존 종목 예시", qty: 0, value_krw: 8023380 }] };
+  let state = JSON.parse(JSON.stringify(sample));
+  let contrib = 2000000, contribDirty = false, holdDirty = false;
+
+  function buildInputs() {
+    $("mainRows").innerHTML = CODES.map((c) => `
+      <div class="row"><div class="name"><b>${NAMES[c]} <span class="sub" style="font-weight:400">${c}</span></b><small>${FULL[c]}</small></div>
+      <input id="q_${c}" class="num" inputmode="numeric" aria-label="${NAMES[c]} 수량(주)"></div>`).join("");
+    CODES.forEach((c) => { const el = $("q_" + c); el.value = state.holdings[c] || 0;
+      el.addEventListener("input", () => { holdDirty = true; render(); }); });
+    $("cash").value = (state.cash_krw || 0).toLocaleString("ko-KR");
+    renderOthers();
+  }
+  function renderOthers() {
+    $("otherRows").innerHTML = (state.others || []).map((o, i) => `
+      <div class="other"><input id="on_${i}" value="${String(o.name || "").replace(/"/g, "&quot;")}" aria-label="종목명">
+      <input id="ov_${i}" class="num" inputmode="numeric" value="${Math.round(o.value_krw || 0).toLocaleString("ko-KR")}" aria-label="평가금액">
+      <button type="button" data-del="${i}" aria-label="삭제">✕</button></div>`).join("");
+    (state.others || []).forEach((o, i) => {
+      $("on_" + i).addEventListener("input", (e) => { o.name = e.target.value; holdDirty = true; render(); });
+      $("ov_" + i).addEventListener("input", (e) => { o.value_krw = parseNum(e.target.value) || 0; holdDirty = true; render(); });
+    });
+    $("otherRows").querySelectorAll("[data-del]").forEach((b) => b.addEventListener("click", () => {
+      state.others.splice(+b.dataset.del, 1); holdDirty = true; renderOthers(); render(); }));
+  }
+
+  function readInputs() {
+    for (const c of CODES) { const v = parseInt(String($("q_" + c).value).replace(/[^\d]/g, ""), 10); state.holdings[c] = isNaN(v) ? 0 : v; }
+    const cash = parseNum($("cash").value); state.cash_krw = isNaN(cash) ? 0 : cash;
+    const ct = parseNum($("contrib").value); contrib = isNaN(ct) ? 0 : ct;
+  }
+
+  function render() {
+    if (!meta) return;
+    readInputs();
+    const P = meta.prices, values = {};
+    let ok = CODES.every((c) => P[c] > 0);
+    if (!ok) { $("gapInfo").textContent = "가격 정보가 없어서 계산하지 못했어요."; return; }
+    for (const c of CODES) values[c] = state.holdings[c] * P[c];
+    const others = (state.others || []).reduce((a, o) => a + (+o.value_krw || 0), 0);
+    const total = CODES.reduce((a, c) => a + values[c], 0) + others + state.cash_krw;
+    $("othersSum").textContent = won(others);
+    const w = {}; for (const c of CODES) w[c] = total > 0 ? values[c] / total : 0;
+    $("bar").innerHTML = CODES.map((c) => `<i style="width:${w[c] * 100}%;background:${COLORS[c]}"></i>`).join("");
+    $("wTable").innerHTML = `<tr><th>종목</th><th>평가액</th><th>지금</th><th>목표</th></tr>` +
+      CODES.map((c) => `<tr><td>${NAMES[c]}</td><td class="num">${won(values[c])}</td><td class="num">${pct(w[c])}</td><td class="num">${TW[c] * 100}%</td></tr>`).join("") +
+      `<tr><td>기존 종목</td><td class="num">${won(others)}</td><td class="num">${pct(total ? others / total : 0)}</td><td class="num">0%</td></tr>` +
+      `<tr><td>예수금</td><td class="num">${won(state.cash_krw)}</td><td class="num">${pct(total ? state.cash_krw / total : 0)}</td><td></td></tr>` +
+      `<tr><td><b>총자산</b></td><td class="num"><b>${won(total)}</b></td><td></td><td></td></tr>`;
+    const k = w["418660"], pill = $("kqldPill");
+    pill.textContent = "K-QLD " + pct(k);
+    pill.className = "pill " + (k > UPPER ? "bad" : k > 0.55 ? "warn" : "ok");
+    $("gapInfo").textContent = k > UPPER
+      ? `60%를 ${((k - UPPER) * 100).toFixed(1)}%p 넘었어요. 데일리 메일의 ⚖️ 되돌리기 주문을 확인하세요.`
+      : `60%까지 ${((UPPER - k) * 100).toFixed(1)}%p 남았어요.`;
+
+    // 배분표
+    const plan = allocate(values, P, contrib, total + contrib);
+    const tot2 = total + contrib;
+    $("planTable").innerHTML = `<tr><th>종목</th><th>주 수</th><th>금액</th><th>산 뒤 비중</th></tr>` +
+      CODES.map((c) => `<tr><td>${NAMES[c]}</td><td class="num"><b>${plan.shares[c]}주</b></td><td class="num">${won(plan.shares[c] * P[c])}</td><td class="num">${pct(tot2 ? (values[c] + plan.shares[c] * P[c]) / tot2 : 0)}</td></tr>`).join("");
+    $("planInfo").textContent = `남는 돈 ${won(plan.left)} · 가격은 ${meta.price_date} 종가 기준이라 실제 주문 때와 조금 다를 수 있어요.`;
+
+    const dirty = connected && (holdDirty || contribDirty);
+    $("saveBtn").disabled = !dirty;
+    if (connected) $("saveMsg").textContent = dirty ? "저장하지 않은 변경이 있어요" : "고친 값이 없어요";
+  }
+
+  async function gh(method, body) {
+    const tok = store.get(TOKEN_KEY) || $("token").value.trim();
+    const r = await fetch(API, { method, headers: { Authorization: `Bearer ${tok}`, Accept: "application/vnd.github+json",
+      "X-GitHub-Api-Version": "2022-11-28", ...(body ? { "Content-Type": "application/json" } : {}) },
+      body: body ? JSON.stringify(body) : undefined, cache: "no-store" });
+    return r;
+  }
+
+  async function connect() {
+    const tok = $("token").value.trim() || store.get(TOKEN_KEY);
+    if (!tok) { $("connectMsg").textContent = "토큰을 붙여 넣어 주세요."; return; }
+    $("connectMsg").textContent = "연결 중…";
+    store.set(TOKEN_KEY, tok);
+    try {
+      const r = await gh("GET");
+      if (r.status === 401 || r.status === 403) throw new Error("토큰이 맞지 않거나 Variables 권한이 없어요. 토큰을 다시 확인해 주세요.");
+      if (r.status === 404) { original = {}; }
+      else if (!r.ok) throw new Error(`불러오기 실패 (HTTP ${r.status})`);
+      else original = JSON.parse((await r.json()).value || "{}");
+      connected = true;
+      state = {
+        updated: original.updated || null,
+        cash_krw: original.cash_krw || 0,
+        holdings: Object.assign({ "458730": 0, "418660": 0, "0046A0": 0 }, original.holdings || {}),
+        others: JSON.parse(JSON.stringify(original.others || [])),
+      };
+      const o = original.contrib_override;
+      contrib = (o && meta && o.month === meta.next_invest_day.slice(0, 7) && o.amount) ? o.amount : (meta ? meta.default_contribution : 2000000);
+      $("contrib").value = contrib.toLocaleString("ko-KR");
+      $("connectCard").hidden = true;
+      $("updatedInfo").textContent = state.updated ? `잔고 ${state.updated} 기준` : "저장된 잔고가 아직 없어요";
+      holdDirty = contribDirty = false;
+      buildInputs(); render();
+    } catch (e) {
+      store.del(TOKEN_KEY);
+      $("connectCard").hidden = false;
+      $("connectMsg").textContent = e.message || "연결하지 못했어요. 인터넷 연결을 확인해 주세요.";
+    }
+  }
+
+  async function save() {
+    readInputs();
+    const btn = $("saveBtn"); btn.disabled = true; $("saveMsg").textContent = "저장 중…";
+    try {
+      // 저장 직전에 최신 값을 다시 읽어서 메일함 상태(_inbox) 등 다른 필드를 지킨다
+      const r0 = await gh("GET");
+      const latest = r0.ok ? JSON.parse((await r0.json()).value || "{}") : (original || {});
+      const today = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);   // KST 날짜
+      const next = Object.assign({}, latest);
+      if (holdDirty) {
+        next.holdings = Object.assign({}, latest.holdings || {}, state.holdings);
+        next.cash_krw = state.cash_krw;
+        next.others = state.others.filter((o) => (o.name || "").trim() || o.value_krw).map((o) => ({ name: o.name || "?", qty: o.qty || 0, value_krw: Math.round(+o.value_krw || 0) }));
+        next.updated = today;
+        delete next.net_assets_read;
+      }
+      if (contribDirty && meta) {
+        if (contrib && contrib !== meta.default_contribution) next.contrib_override = { month: meta.next_invest_day.slice(0, 7), amount: contrib };
+        else delete next.contrib_override;
+      }
+      const body = { name: VAR, value: JSON.stringify(next) };
+      let r = await gh("PATCH", body);
+      if (r.status === 404) r = await fetch(API.replace("/" + VAR, ""), { method: "POST", headers: { Authorization: `Bearer ${store.get(TOKEN_KEY)}`, Accept: "application/vnd.github+json", "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      if (!r.ok) throw new Error(r.status === 403 ? "저장 권한이 없어요. 토큰의 Variables 권한을 Read and write로 바꿔 주세요." : `저장 실패 (HTTP ${r.status})`);
+      original = next; holdDirty = contribDirty = false;
+      if (next.updated) $("updatedInfo").textContent = `잔고 ${next.updated} 기준`;
+      render();
+      $("saveMsg").textContent = "✅ 저장했어요. 다음 메일부터 반영돼요.";
+    } catch (e) {
+      $("saveMsg").textContent = e.message || "저장하지 못했어요. 다시 눌러 주세요.";
+      btn.disabled = false;
+    }
+  }
+
+  async function init() {
+    buildInputs();
+    try {
+      const r = await fetch("data/prices.json", { cache: "no-store" });
+      meta = await r.json();
+      $("priceInfo").textContent = `가격 ${meta.price_date} 종가 · 다음 투자일 ${meta.next_invest_day} (월급날 ${meta.payday})`;
+      $("planTitle").textContent = `다음 투자일(${meta.next_invest_day})에 살 것`;
+      $("contribHint").textContent = `기본 ${meta.default_contribution.toLocaleString("ko-KR")}원 · 이번 달만 바뀌어요`;
+      contrib = meta.default_contribution;
+    } catch (e) {
+      $("priceInfo").textContent = "가격 정보를 불러오지 못했어요. 잠시 뒤 새로고침해 주세요.";
+    }
+    $("contrib").value = contrib.toLocaleString("ko-KR");
+    $("contrib").addEventListener("input", () => { contribDirty = true; render(); });
+    $("cash").addEventListener("input", () => { holdDirty = true; render(); });
+    $("addOther").addEventListener("click", () => { state.others.push({ name: "", qty: 0, value_krw: 0 }); holdDirty = true; renderOthers(); render(); });
+    $("connectBtn").addEventListener("click", connect);
+    $("saveBtn").addEventListener("click", save);
+    render();
+    if (store.get(TOKEN_KEY)) connect();
+  }
+  init();
+})();
+</script>
+</body>
+</html>

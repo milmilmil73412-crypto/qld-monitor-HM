@@ -79,6 +79,7 @@ STATUS_STABLE = {
 HISTORY_MAX_DAYS = 90
 
 HISTORY_PATH = Path(__file__).parent / "data" / "history.json"
+PRICES_PATH = Path(__file__).parent / "data" / "prices.json"   # 현황표(isa.html)용 공개 가격 (보유 정보 없음)
 PREVIEW_DIR = Path(__file__).parent / "preview"   # --dry-run 메일 미리보기 (.gitignore)
 OUTPUT_HTML_PATH = Path(__file__).parent / "index.html"
 
@@ -1725,6 +1726,17 @@ def main():
     market = fetch_market(df_k)
     live_prices = dict(prices)
     live_prices["USDKRW"] = market["usdkrw"] or 1380.0
+
+    # 현황표(isa.html)가 쓰는 가격·일정. 공개 정보만 담는다.
+    if all(c in prices for c in isa.CODES):
+        inv = isa.next_invest_day(now_kst.date())
+        PRICES_PATH.write_text(json.dumps({
+            "price_date": kqld["date"] if kqld else now_kst.strftime("%Y-%m-%d"),
+            "prices": {c: prices[c] for c in isa.CODES},
+            "next_invest_day": inv.isoformat(),
+            "payday": isa.payday(inv.year, inv.month).isoformat(),
+            "default_contribution": isa.DEFAULT_CONTRIBUTION,
+        }, ensure_ascii=False, indent=1), encoding="utf-8")
 
     # ── 3.6 ISA 할 일 (보유 수량은 로그에 남기지 않음) ──
     ctx = make_ctx(now_kst.date(), holdings, prices, prev_prices, week_prices, status, kqld, market)
