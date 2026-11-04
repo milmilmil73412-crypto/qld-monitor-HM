@@ -32,7 +32,7 @@ import isa_mail
 # ─── 상수 ──────────────────────────────────────────────────────────────────────
 
 KST = ZoneInfo("Asia/Seoul")
-EST = ZoneInfo("US/Eastern")
+EST = ZoneInfo("America/New_York")  # "US/Eastern"은 Ubuntu 26 러너에 없음
 
 # 상태 매트릭스 정의
 STATUS_LEVELS = [
