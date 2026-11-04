@@ -236,14 +236,15 @@
     <div class="container">
         <header>
             <h1>📊 QLD 모니터링 대시보드</h1>
-            <div class="last-updated">마지막 업데이트: 2026-11-04 11:52 KST</div>
+            <div class="last-updated">마지막 업데이트: 2026-11-04 21:26 KST</div>
         </header>
 
         <!-- 상태 히어로 카드 -->
         <div class="glass-card hero-card" id="hero-status">
             <div class="hero-emoji">🟡</div>
+            <div class="metric-sub">QLD (달러 기준)</div>
             <div class="hero-title">관심</div>
-            <div class="hero-desc">매수 임계치 근접 — 현금 사전 점검</div>
+            <div class="hero-desc">조정 근처 — 참고용</div>
         </div>
 
         <!-- 핵심 지표 카드 -->
@@ -262,6 +263,22 @@
                 <div class="metric-title">주봉 RSI (진행형)</div>
                 <div class="metric-value" style="color:#ffaa00">43.4</div>
                 <div class="metric-sub">임계: 48 / 42 / 36</div>
+            </div>
+        </div>
+
+
+        <!-- K-QLD (원화 기준) -->
+        <div class="glass-card" id="kqld-section" style="margin-bottom:1.5rem;border:1px solid #ff6b3566;">
+            <div class="metric-title">K-QLD 418660 (원화 기준) · 기준일 2026-11-04</div>
+            <div style="font-size:1.6rem;font-weight:700;color:#ff6b35;margin:0.3rem 0;">🟠 1단계</div>
+            <div class="metrics-grid" style="margin:0.8rem 0 0;">
+                <div><div class="metric-sub">종가 / 200일선</div><div class="metric-value" style="font-size:1.3rem;">33,750원</div><div class="metric-sub">SMA200 40,136원</div></div>
+                <div><div class="metric-sub">200일선 괴리율</div><div class="metric-value" style="font-size:1.3rem;color:#ff3860">-15.91%</div><div class="metric-sub">1단계까지 0.00%p</div></div>
+                <div><div class="metric-sub">주봉 RSI</div><div class="metric-value" style="font-size:1.3rem;color:#ff3860">36.7</div><div class="metric-sub">1단계까지 0.0pt</div></div>
+            </div>
+            <div style="margin-top:1rem;padding-top:0.8rem;border-top:1px solid rgba(148,163,184,0.2);">
+                <b>종합: ⚪🔴 K-QLD만 신호</b>
+                <div class="metric-sub" style="margin-top:0.3rem;">나스닥보다 환율(원화 강세) 영향이 큰 신호 (참고용)</div>
             </div>
         </div>
 
@@ -371,12 +388,10 @@
                     <table class="guide-table">
                         <thead><tr><th>구분</th><th>자산</th><th>비중</th></tr></thead>
                         <tbody>
-                            <tr><td>🔵 주력</td><td>418660 TIGER 미국나스닥100레버리지(합성)</td><td>60%</td></tr>
-                            <tr><td>🟢 실탄</td><td>486290 TIGER 미국나스닥100타겟데일리커버드콜</td><td>30%</td></tr>
-                            <tr><td>🟡 직투</td><td>DGRO iShares Core Dividend Growth ETF</td><td>10%</td></tr>
-                            <tr><td colspan="3" style="padding-top:1rem;font-weight:600;color:var(--text-primary);">현금성 자산 (30%)</td></tr>
-                            <tr><td>💰 국채</td><td>0046A0 TIGER 미국초단기국채</td><td>80%</td></tr>
-                            <tr><td>💵 현금</td><td>CMA 통장</td><td>20%</td></tr>
+                            <tr><td>🟢 방어·배당</td><td>K-SCHD · 458730 TIGER 미국배당다우존스</td><td>40%</td></tr>
+                            <tr><td>🔵 공격</td><td>K-QLD · 418660 TIGER 미국나스닥100레버리지(합성)</td><td>50%</td></tr>
+                            <tr><td>💰 대기·현금</td><td>K-SGOV · 0046A0 TIGER 미국초단기국채</td><td>10%</td></tr>
+                            <tr><td colspan="3" style="padding-top:1rem;font-size:0.85rem;">운용: ① 투자일마다 투자금은 목표보다 부족한 종목부터 ② K-QLD가 60%를 넘으면 신호와 상관없이 바로 50%로 ③ 매년 12월 5%p 넘게 벗어난 종목만 목표로 (K-QLD 부족분은 예수금 → K-SGOV → K-SCHD). 떨어졌다고 50% 넘게 더 사지 않아요.</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -384,25 +399,7 @@
 
             <div class="accordion-item">
                 <div class="accordion-header" onclick="toggleAccordion(this)">
-                    <span>📐 분할 매수 집행 규칙 (40:40:20 DCA)</span>
-                    <svg class="accordion-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
-                </div>
-                <div class="accordion-content">
-                    <table class="guide-table">
-                        <thead><tr><th>단계</th><th>규모</th><th>실행 방법</th></tr></thead>
-                        <tbody>
-                            <tr><td>1차 매수</td><td>현금의 40%</td><td>1단계 신호 진입 시, 8주간 매주 1/8씩 기계적 매수</td></tr>
-                            <tr><td>2차 매수</td><td>남은 현금의 40%</td><td>8주 경과 후 신호 유지 시, 2차 8주(총 16주) 매수</td></tr>
-                            <tr><td>3차 매수</td><td>잔여 20% + 배당금</td><td>커버드콜/DGRO 배당금을 매월 신규 실탄으로 소진까지 매수</td></tr>
-                        </tbody>
-                    </table>
-                    <p style="margin-top:1rem;font-size:0.85rem;"><strong>자금 인출 순서:</strong> CMA 잔액 우선 → 부족 시 0046A0(단기국채) 매도 → 418660 매수</p>
-                </div>
-            </div>
-
-            <div class="accordion-item">
-                <div class="accordion-header" onclick="toggleAccordion(this)">
-                    <span>🚦 상태 매트릭스 가이드</span>
+                    <span>🚦 신호 가이드 (참고용 — 매수량은 바꾸지 않아요)</span>
                     <svg class="accordion-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
                 </div>
                 <div class="accordion-content">
@@ -410,10 +407,10 @@
                         <thead><tr><th>상태</th><th>조건</th><th>설명</th></tr></thead>
                         <tbody>
                             <tr><td>🟢 안정</td><td>괴리율 &gt; -5% AND RSI &gt; 55</td><td>평시 관망 구간</td></tr>
-                            <tr><td>🟡 관심</td><td>안정·1단계 조건에 모두 해당하지 않는 나머지</td><td>매수 임계치 근접, 현금 점검</td></tr>
-                            <tr><td>🟠 1단계</td><td>RSI ≤ 48 AND 괴리율 ≤ -10%</td><td>분할 매수 시작 (8주 1차)</td></tr>
-                            <tr><td>🔴 2단계</td><td>RSI ≤ 42 AND 괴리율 ≤ -18%</td><td>매력적 매수 (계획 이행)</td></tr>
-                            <tr><td>🟣 3단계</td><td>RSI ≤ 36 AND 괴리율 ≤ -26%</td><td>역사적 바닥 (전력 매수)</td></tr>
+                            <tr><td>🟡 관심</td><td>안정·1단계 조건에 모두 해당하지 않는 나머지</td><td>조정 근처 (참고용)</td></tr>
+                            <tr><td>🟠 1단계</td><td>RSI ≤ 48 AND 괴리율 ≤ -10%</td><td>조정 진입 (참고용)</td></tr>
+                            <tr><td>🔴 2단계</td><td>RSI ≤ 42 AND 괴리율 ≤ -18%</td><td>큰 조정 (참고용)</td></tr>
+                            <tr><td>🟣 3단계</td><td>RSI ≤ 36 AND 괴리율 ≤ -26%</td><td>깊은 하락 (참고용, 바닥 아님)</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -442,7 +439,7 @@
         });
 
         // ── Chart ──
-        const chartData = [{"date": "2026-09-29", "close": 94.87, "sma200": 80.63, "deviation": 17.66, "rsi": 58.5, "status": "안정"}, {"date": "2026-09-30", "close": 95.22, "sma200": 80.74, "deviation": 17.93, "rsi": 58.9, "status": "안정"}, {"date": "2026-10-01", "close": 95.65, "sma200": 80.85, "deviation": 18.3, "rsi": 59.5, "status": "안정"}, {"date": "2026-10-02", "close": 96.24, "sma200": 80.98, "deviation": 18.84, "rsi": 60.3, "status": "안정"}, {"date": "2026-10-03", "close": NaN, "sma200": 81.04, "deviation": NaN, "rsi": 60.3, "status": "관심"}, {"date": "2026-10-05", "close": 98.13, "sma200": 81.13, "deviation": 20.96, "rsi": 62.2, "status": "안정"}, {"date": "2026-10-06", "close": 99.84, "sma200": 81.28, "deviation": 22.84, "rsi": 64.7, "status": "안정"}, {"date": "2026-10-07", "close": 100.77, "sma200": 81.44, "deviation": 23.73, "rsi": 65.5, "status": "안정"}, {"date": "2026-10-08", "close": 100.23, "sma200": 81.6, "deviation": 22.83, "rsi": 65.0, "status": "안정"}, {"date": "2026-10-09", "close": 97.54, "sma200": 81.73, "deviation": 19.34, "rsi": 62.5, "status": "안정"}, {"date": "2026-10-10", "close": 98.42, "sma200": 81.87, "deviation": 20.22, "rsi": 63.6, "status": "안정"}, {"date": "2026-10-12", "close": 98.42, "sma200": 81.87, "deviation": 20.22, "rsi": 63.6, "status": "안정"}, {"date": "2026-10-13", "close": 97.08, "sma200": 81.99, "deviation": 18.4, "rsi": 61.0, "status": "안정"}, {"date": "2026-10-14", "close": 96.44, "sma200": 82.11, "deviation": 17.45, "rsi": 60.1, "status": "안정"}, {"date": "2026-10-15", "close": 92.55, "sma200": 82.21, "deviation": 12.58, "rsi": 54.9, "status": "관심"}, {"date": "2026-10-16", "close": 92.36, "sma200": 82.31, "deviation": 12.21, "rsi": 54.7, "status": "관심"}, {"date": "2026-10-17", "close": NaN, "sma200": 82.37, "deviation": NaN, "rsi": 54.7, "status": "관심"}, {"date": "2026-10-19", "close": 87.72, "sma200": 82.39, "deviation": 6.47, "rsi": 49.7, "status": "관심"}, {"date": "2026-10-22", "close": NaN, "sma200": 82.65, "deviation": NaN, "rsi": 51.3, "status": "관심"}, {"date": "2026-10-23", "close": NaN, "sma200": 82.74, "deviation": NaN, "rsi": 53.1, "status": "관심"}, {"date": "2026-10-24", "close": NaN, "sma200": 82.81, "deviation": NaN, "rsi": 47.9, "status": "관심"}, {"date": "2026-10-26", "close": 86.15, "sma200": 82.83, "deviation": 4.01, "rsi": 47.8, "status": "관심"}, {"date": "2026-10-27", "close": 88.03, "sma200": 82.91, "deviation": 6.18, "rsi": 50.0, "status": "관심"}, {"date": "2026-10-28", "close": 90.29, "sma200": 82.99, "deviation": 8.79, "rsi": 52.3, "status": "관심"}, {"date": "2026-10-29", "close": 91.39, "sma200": 83.09, "deviation": 9.99, "rsi": 53.4, "status": "관심"}, {"date": "2026-10-30", "close": 88.74, "sma200": 83.16, "deviation": 6.7, "rsi": 50.8, "status": "관심"}, {"date": "2026-10-31", "close": 82.59, "sma200": 83.22, "deviation": -0.76, "rsi": 44.4, "status": "관심"}, {"date": "2026-11-02", "close": 82.59, "sma200": 83.22, "deviation": -0.76, "rsi": 44.4, "status": "관심"}, {"date": "2026-11-03", "close": 80.3, "sma200": 83.26, "deviation": -3.56, "rsi": 42.5, "status": "관심"}, {"date": "2026-11-04", "close": 81.28, "sma200": 83.31, "deviation": -2.44, "rsi": 43.4, "status": "관심"}];
+        const chartData = [{"date": "2026-09-29", "close": 94.87, "sma200": 80.63, "deviation": 17.66, "rsi": 58.5, "status": "안정"}, {"date": "2026-09-30", "close": 95.22, "sma200": 80.74, "deviation": 17.93, "rsi": 58.9, "status": "안정"}, {"date": "2026-10-01", "close": 95.65, "sma200": 80.85, "deviation": 18.3, "rsi": 59.5, "status": "안정"}, {"date": "2026-10-02", "close": 96.24, "sma200": 80.98, "deviation": 18.84, "rsi": 60.3, "status": "안정"}, {"date": "2026-10-03", "close": NaN, "sma200": 81.04, "deviation": NaN, "rsi": 60.3, "status": "관심"}, {"date": "2026-10-05", "close": 98.13, "sma200": 81.13, "deviation": 20.96, "rsi": 62.2, "status": "안정"}, {"date": "2026-10-06", "close": 99.84, "sma200": 81.28, "deviation": 22.84, "rsi": 64.7, "status": "안정"}, {"date": "2026-10-07", "close": 100.77, "sma200": 81.44, "deviation": 23.73, "rsi": 65.5, "status": "안정"}, {"date": "2026-10-08", "close": 100.23, "sma200": 81.6, "deviation": 22.83, "rsi": 65.0, "status": "안정"}, {"date": "2026-10-09", "close": 97.54, "sma200": 81.73, "deviation": 19.34, "rsi": 62.5, "status": "안정"}, {"date": "2026-10-10", "close": 98.42, "sma200": 81.87, "deviation": 20.22, "rsi": 63.6, "status": "안정"}, {"date": "2026-10-12", "close": 98.42, "sma200": 81.87, "deviation": 20.22, "rsi": 63.6, "status": "안정"}, {"date": "2026-10-13", "close": 97.08, "sma200": 81.99, "deviation": 18.4, "rsi": 61.0, "status": "안정"}, {"date": "2026-10-14", "close": 96.44, "sma200": 82.11, "deviation": 17.45, "rsi": 60.1, "status": "안정"}, {"date": "2026-10-15", "close": 92.55, "sma200": 82.21, "deviation": 12.58, "rsi": 54.9, "status": "관심"}, {"date": "2026-10-16", "close": 92.36, "sma200": 82.31, "deviation": 12.21, "rsi": 54.7, "status": "관심"}, {"date": "2026-10-17", "close": NaN, "sma200": 82.37, "deviation": NaN, "rsi": 54.7, "status": "관심"}, {"date": "2026-10-19", "close": 87.72, "sma200": 82.39, "deviation": 6.47, "rsi": 49.7, "status": "관심"}, {"date": "2026-10-22", "close": NaN, "sma200": 82.65, "deviation": NaN, "rsi": 51.3, "status": "관심"}, {"date": "2026-10-23", "close": NaN, "sma200": 82.74, "deviation": NaN, "rsi": 53.1, "status": "관심"}, {"date": "2026-10-24", "close": NaN, "sma200": 82.81, "deviation": NaN, "rsi": 47.9, "status": "관심"}, {"date": "2026-10-26", "close": 86.15, "sma200": 82.83, "deviation": 4.01, "rsi": 47.8, "status": "관심"}, {"date": "2026-10-27", "close": 88.03, "sma200": 82.91, "deviation": 6.18, "rsi": 50.0, "status": "관심"}, {"date": "2026-10-28", "close": 90.29, "sma200": 82.99, "deviation": 8.79, "rsi": 52.3, "status": "관심"}, {"date": "2026-10-29", "close": 91.39, "sma200": 83.09, "deviation": 9.99, "rsi": 53.4, "status": "관심"}, {"date": "2026-10-30", "close": 88.74, "sma200": 83.16, "deviation": 6.7, "rsi": 50.8, "status": "관심"}, {"date": "2026-10-31", "close": 82.59, "sma200": 83.22, "deviation": -0.76, "rsi": 44.4, "status": "관심"}, {"date": "2026-11-02", "close": 82.59, "sma200": 83.22, "deviation": -0.76, "rsi": 44.4, "status": "관심"}, {"date": "2026-11-03", "close": 80.3, "sma200": 83.26, "deviation": -3.56, "rsi": 42.5, "status": "관심"}, {"date": "2026-11-04", "close": 81.28, "sma200": 83.31, "deviation": -2.44, "rsi": 43.4, "status": "관심", "k_date": "2026-11-04", "k_close": 33750.0, "k_sma200": 40136.0, "k_deviation": -15.91, "k_rsi": 36.7, "k_status": "1단계", "combined": "kqld_only"}];
 
         function drawChart() {
             const canvas = document.getElementById('trendChart');
@@ -661,7 +658,7 @@
         // ── Portfolio Manager (localStorage) ──
         // ══════════════════════════════════════════════
         const PF_KEY = 'qld_portfolio_v2';
-        const SERVER_PRICES = {"USDKRW": 1337.8399658203125, "418660": 32615.0, "486290": 9285.0, "DGRO": 80.76000213623047, "0046A0": 9257.0};
+        const SERVER_PRICES = {"458730": 15065.0, "418660": 33750.0, "0046A0": 9280.0, "USDKRW": 1338.0999755859375};
         let usdKrwRate = SERVER_PRICES["USDKRW"] || 1380; // Python에서 수집한 환율
 
         const PF_COLORS = [
@@ -669,12 +666,11 @@
             '#ff3860','#06b6d4','#f43f5e','#84cc16','#a78bfa',
             '#fb923c','#22d3ee','#e879f9','#facc15','#4ade80'
         ];
+        // [2026-11] ISA 3종 목표비중 (v6: K-SCHD 40 / K-QLD 50 / K-SGOV 10) — Python TARGET_WEIGHTS와 같게 유지
         const PF_TARGET = [
-            { ticker:'418660', name:'418660 TIGER 레버리지', pct:42, color:'#3b82f6' },
-            { ticker:'486290', name:'486290 TIGER 커버드콜', pct:21, color:'#00d68f' },
-            { ticker:'DGRO', name:'DGRO 배당성장', pct:7, color:'#ffaa00' },
-            { ticker:'0046A0', name:'0046A0 초단기국채', pct:24, color:'#ff6b35' },
-            { ticker:'CASH', name:'CMA 현금', pct:6, color:'#b86bff' },
+            { ticker:'458730', name:'K-SCHD (458730 TIGER 미국배당다우존스)', pct:40, color:'#00d68f' },
+            { ticker:'418660', name:'K-QLD (418660 TIGER 나스닥100레버리지)', pct:50, color:'#3b82f6' },
+            { ticker:'0046A0', name:'K-SGOV (0046A0 TIGER 미국초단기국채)', pct:10, color:'#ff6b35' },
         ];
 
         function pfLoad() {
