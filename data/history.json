@@ -588,13 +588,13 @@
     "close": 81.28,
     "sma200": 83.31,
     "deviation": -2.44,
-    "rsi": 43.4,
+    "rsi": 43.3,
     "status": "관심",
     "k_date": "2026-11-04",
     "k_close": 33750.0,
     "k_sma200": 40136.0,
     "k_deviation": -15.91,
-    "k_rsi": 36.7,
+    "k_rsi": 37.1,
     "k_status": "1단계",
     "combined": "kqld_only"
   }
