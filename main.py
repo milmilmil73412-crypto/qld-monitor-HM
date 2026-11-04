@@ -140,6 +140,22 @@ def combine_signal(qld_status: dict, k_status: dict) -> dict:
     return {"code": "none", "label": "신호 없음", "emoji": "⚪⚪", "desc": "두 기준 모두 신호 없음"}
 
 
+def signal_series(df: pd.DataFrame, n: int = 30) -> list[dict]:
+    """최근 n거래일의 200일선 괴리율·주봉 RSI. 매일 아침 실행한 것처럼 계산해서 그래프에 쓴다."""
+    close = df["Close"]
+    sma = close.rolling(200).mean()
+    out = []
+    for i in range(max(0, len(df) - n), len(df)):
+        if pd.isna(sma.iloc[i]):
+            continue
+        day = df.index[i]
+        run_at = datetime(day.year, day.month, day.day, 7, 0, tzinfo=KST) + timedelta(days=1)
+        r, _ = calc_weekly_rsi(df.iloc[:i + 1], run_at)
+        out.append({"date": day.strftime("%Y-%m-%d"),
+                    "deviation": round((float(close.iloc[i]) / float(sma.iloc[i]) - 1) * 100, 2), "rsi": r})
+    return out
+
+
 def calc_sma200(df: pd.DataFrame) -> float:
     """200일 단순이동평균(SMA) 계산."""
     if len(df) < 200:
@@ -307,22 +323,65 @@ def build_email_html(status: dict, close: float, sma200: float,
                      deviation: float, rsi: float, rsi_type: str,
                      margin: dict, now_kst: datetime, history: list[dict],
                      kqld: dict | None = None, isa_html: str = "",
-                     title: str = "📊 ISA 데일리") -> str:
+                     title: str = "📊 ISA 데일리", qld_series: list[dict] | None = None) -> str:
     """HTML 형태의 이메일 본문을 생성한다."""
     weekday_ko = ["월", "화", "수", "목", "금", "토", "일"][now_kst.weekday()]
     date_str = now_kst.strftime("%Y년 %m월 %d일") + f" ({weekday_ko})"
 
-    # K-QLD(원화 기준) 카드
+    def li(items):
+        return "".join(f'<li style="margin:2px 0;">{x}</li>' for x in items if x)
+
+    def trend_chart(rows, dev_key, rsi_key, title):
+        """최근 30일 괴리율·RSI 차트 (quickchart 이미지). 값이 있는 날만 쓴다."""
+        ok = lambda v: isinstance(v, (int, float)) and v == v   # None·NaN 제외
+        rows = [r for r in rows if ok(r.get(dev_key)) and ok(r.get(rsi_key))][-30:]
+        if len(rows) < 2:
+            return (f'<ul style="margin:8px 0 0;padding-left:18px;color:#94a3b8;font-size:13px;">'
+                    f'<li>{title}: 기록이 쌓이는 중 ({len(rows)}일)</li><li>2일 이상 쌓이면 그래프가 나와요</li></ul>')
+        cfg = {
+            'type': 'line',
+            'data': {'labels': [datetime.strptime(r["date"], "%Y-%m-%d").strftime("%m/%d") for r in rows],
+                     'datasets': [
+                         {'label': '200일선 괴리율 (%)', 'data': [r[dev_key] for r in rows], 'borderColor': '#ffaa00', 'borderWidth': 2, 'fill': False, 'yAxisID': 'y-dev', 'pointRadius': 0},
+                         {'label': '주봉 RSI (pt)', 'data': [r[rsi_key] for r in rows], 'borderColor': '#00d68f', 'borderWidth': 2, 'fill': False, 'yAxisID': 'y-rsi', 'pointRadius': 0}]},
+            'options': {
+                'legend': {'labels': {'fontColor': '#94a3b8'}},
+                'title': {'display': True, 'text': title, 'fontColor': '#e2e8f0', 'fontSize': 14},
+                'scales': {'yAxes': [{'id': 'y-dev', 'position': 'left', 'gridLines': {'color': '#1e293b'}, 'ticks': {'fontColor': '#ffaa00'}},
+                                     {'id': 'y-rsi', 'position': 'right', 'gridLines': {'display': False}, 'ticks': {'fontColor': '#00d68f'}}],
+                           'xAxes': [{'gridLines': {'color': '#1e293b'}, 'ticks': {'fontColor': '#94a3b8'}}]},
+                'annotation': {'annotations': [
+                    {'type': 'line', 'mode': 'horizontal', 'scaleID': 'y-dev', 'value': -10, 'borderColor': 'rgba(255,56,96,0.8)', 'borderWidth': 1, 'borderDash': [4, 4]},
+                    {'type': 'line', 'mode': 'horizontal', 'scaleID': 'y-rsi', 'value': 48, 'borderColor': 'rgba(255,56,96,0.8)', 'borderWidth': 1, 'borderDash': [4, 4]}]}}}
+        import urllib.parse
+        url = "https://quickchart.io/chart?c=" + urllib.parse.quote(json.dumps(cfg)) + "&w=600&h=300&bkg=111827"
+        return f'<div style="text-align:center;margin:12px 0 0;"><img src="{url}" alt="{title}" style="max-width:100%;border-radius:12px;border:1px solid #1e293b;"></div>'
+
+    # K-QLD(원화 기준) 카드 — 개조식
     kqld_html = ""
     if kqld:
         ks = kqld["status"]
         comb = kqld["combined"]
-        kqld_html = f'''<div style="margin:12px 0 20px;padding:18px;border-radius:16px;background:#111827;border:1px solid {ks['color']}66;">
-  <div style="font-size:13px;color:#94a3b8;margin-bottom:6px;">K-QLD 418660 (원화 기준)</div>
-  <div style="font-size:22px;font-weight:700;color:{ks['color']};">{ks['emoji']} {ks['name']}</div>
-  <div style="font-size:13px;color:#cbd5e1;margin-top:6px;">종가 {kqld['close']:,.0f}원 · 200일선 {kqld['sma200']:,.0f}원 · 괴리율 {kqld['deviation']:+.2f}% · 주봉 RSI {kqld['rsi']:.1f} (기준일 {kqld['date']})</div>
-  <div style="margin-top:12px;padding-top:10px;border-top:1px solid #1e293b;font-size:14px;color:#e2e8f0;"><b>종합: {comb['emoji']} {comb['label']}</b></div>
-  <div style="font-size:12px;color:#94a3b8;margin-top:4px;">{comb['desc']}</div>
+        km = kqld["margin"]
+        kqld_html = f'''<div style="margin:28px 0 8px;color:#e2e8f0;font-size:15px;font-weight:700;">🇰🇷 K-QLD 418660 (원화 기준)</div>
+<div style="margin:0 0 12px;padding:16px 18px;border-radius:16px;background:#111827;border:1px solid {ks['color']}66;">
+  <div style="font-size:22px;font-weight:700;color:{ks['color']};margin-bottom:6px;">{ks['emoji']} {ks['name']}</div>
+  <ul style="margin:0;padding-left:18px;color:#cbd5e1;font-size:14px;line-height:1.7;">
+    {li([ks['description'], f"종가 {kqld['close']:,.0f}원", f"200일선 {kqld['sma200']:,.0f}원",
+         f"200일선 괴리율 <b>{kqld['deviation']:+.2f}%</b>", f"주봉 RSI <b>{kqld['rsi']:.1f}</b>", f"기준일 {kqld['date']}"])}
+  </ul>
+  <div style="margin-top:10px;padding-top:8px;border-top:1px solid #1e293b;color:#94a3b8;font-size:13px;font-weight:600;">1단계 기준까지</div>
+  <ul style="margin:4px 0 0;padding-left:18px;color:#cbd5e1;font-size:13px;line-height:1.7;">
+    {li([f"괴리율 → -10%: {km['deviation_margin']:.2f}%p 남음" if kqld['deviation'] > -10 else "괴리율 기준 충족",
+         f"RSI → 48: {km['rsi_margin']:.1f}pt 남음" if kqld['rsi'] > 48 else "RSI 기준 충족"])}
+  </ul>
+  {trend_chart(kqld.get("series") or history, "deviation" if kqld.get("series") else "k_deviation", "rsi" if kqld.get("series") else "k_rsi", "K-QLD 최근 30일 트렌드")}
+</div>
+<div style="margin:12px 0 20px;padding:14px 18px;border-radius:12px;background:#111827;border:1px solid #1e293b;">
+  <div style="color:#94a3b8;font-size:13px;font-weight:600;margin-bottom:4px;">종합 판정</div>
+  <ul style="margin:0;padding-left:18px;color:#e2e8f0;font-size:14px;line-height:1.7;">
+    {li([f"<b>{comb['emoji']} {comb['label']}</b>", comb['desc']])}
+  </ul>
 </div>'''
 
     status_bg_map = {
@@ -338,44 +397,7 @@ def build_email_html(status: dict, close: float, sma200: float,
     dev_color = "#ff3860" if deviation < -10 else ("#ffaa00" if deviation < -5 else "#00d68f")
     rsi_color = "#ff3860" if rsi < 42 else ("#ffaa00" if rsi < 48 else "#00d68f")
 
-    # 최근 30일 데이터 추출 및 퀵차트 URL 생성
-    recent = history[-30:] if history else []
-    labels = [datetime.strptime(r["date"], "%Y-%m-%d").strftime("%m/%d") for r in recent] if recent else []
-    dev_data = [r.get("deviation", 0) for r in recent]
-    rsi_data = [r.get("rsi", 0) for r in recent]
-
-    import json
-    import urllib.parse
-    chart_config = {
-        'type': 'line',
-        'data': {
-            'labels': labels,
-            'datasets': [
-                {'label': '200일선 괴리율 (%)', 'data': dev_data, 'borderColor': '#ffaa00', 'borderWidth': 2, 'fill': False, 'yAxisID': 'y-dev', 'pointRadius': 0},
-                {'label': '주봉 RSI (pt)', 'data': rsi_data, 'borderColor': '#00d68f', 'borderWidth': 2, 'fill': False, 'yAxisID': 'y-rsi', 'pointRadius': 0}
-            ]
-        },
-        'options': {
-            'backgroundColor': '#111827',
-            'legend': { 'labels': { 'fontColor': '#94a3b8' } },
-            'title': { 'display': True, 'text': '최근 30일 모니터링 트렌드', 'fontColor': '#e2e8f0', 'fontSize': 14 },
-            'scales': {
-                'yAxes': [
-                    {'id': 'y-dev', 'position': 'left', 'gridLines': {'color': '#1e293b'}, 'ticks': {'fontColor': '#ffaa00'}},
-                    {'id': 'y-rsi', 'position': 'right', 'gridLines': {'display': False}, 'ticks': {'fontColor': '#00d68f'}}
-                ],
-                'xAxes': [{'gridLines': {'color': '#1e293b'}, 'ticks': {'fontColor': '#94a3b8'}}],
-            },
-            'annotation': {
-                'annotations': [
-                    {'type': 'line', 'mode': 'horizontal', 'scaleID': 'y-dev', 'value': -10, 'borderColor': 'rgba(255,56,96,0.8)', 'borderWidth': 1, 'borderDash': [4, 4]},
-                    {'type': 'line', 'mode': 'horizontal', 'scaleID': 'y-rsi', 'value': 48, 'borderColor': 'rgba(255,56,96,0.8)', 'borderWidth': 1, 'borderDash': [4, 4]}
-                ]
-            }
-        }
-    }
-    chart_url = "https://quickchart.io/chart?c=" + urllib.parse.quote(json.dumps(chart_config)) + "&w=600&h=300&bkg=111827" if recent else ""
-    chart_html = f'<div style="text-align:center; margin: 20px 0;"><img src="{chart_url}" alt="Trend Chart" style="max-width:100%; border-radius:12px; border:1px solid #1e293b;"></div>' if chart_url else ''
+    chart_html = trend_chart(qld_series or history, "deviation", "rsi", "QLD 최근 30일 트렌드")
 
     return f"""<!DOCTYPE html>
 <html>
@@ -391,19 +413,16 @@ def build_email_html(status: dict, close: float, sma200: float,
 
 {isa_html}
 
-<div style="margin:28px 0 0;color:#94a3b8;font-size:13px;font-weight:600;">📊 신호 상세 (참고용 — 매수량은 목표비중 규칙대로)</div>
+<div style="margin:28px 0 0;color:#94a3b8;font-size:13px;font-weight:600;">📊 신호 상세 (참고용 · 매수량은 목표비중 규칙대로)</div>
+
+<div style="margin:20px 0 8px;color:#e2e8f0;font-size:15px;font-weight:700;">🇺🇸 QLD (달러 기준)</div>
 
 <!-- 상태 카드 -->
-<div style="margin:20px 0;padding:24px;border-radius:16px;background:{bg};border:1px solid {status['color']}44;text-align:center;">
-  <div style="font-size:13px;color:#94a3b8;margin-bottom:4px;">QLD (달러 기준)</div>
-  <div style="font-size:48px;margin-bottom:8px;">{status['emoji']}</div>
-  <div style="font-size:28px;font-weight:700;color:{status['color']};margin-bottom:4px;">{status['name']}</div>
-  <div style="font-size:14px;color:#94a3b8;">{status['description']}</div>
+<div style="margin:0 0 12px;padding:20px;border-radius:16px;background:{bg};border:1px solid {status['color']}44;text-align:center;">
+  <div style="font-size:40px;margin-bottom:4px;">{status['emoji']}</div>
+  <div style="font-size:26px;font-weight:700;color:{status['color']};margin-bottom:4px;">{status['name']}</div>
+  <div style="font-size:13px;color:#94a3b8;">{status['description']}</div>
 </div>
-
-{kqld_html}
-
-{chart_html}
 
 <!-- 지표 카드 -->
 <table style="width:100%;border-collapse:separate;border-spacing:8px;">
@@ -425,11 +444,11 @@ def build_email_html(status: dict, close: float, sma200: float,
 
 <!-- 1단계 마진 -->
 <div style="margin:20px 0;padding:16px;background:#111827;border-radius:12px;border:1px solid #1e293b;">
-  <div style="color:#94a3b8;font-size:13px;font-weight:600;margin-bottom:12px;">📐 1단계 진입까지 남은 거리</div>
+  <div style="color:#94a3b8;font-size:13px;font-weight:600;margin-bottom:12px;">📐 QLD 1단계 기준까지 남은 거리</div>
   <div style="margin-bottom:10px;">
     <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
       <span style="color:#64748b;font-size:12px;">괴리율 → -10%</span>
-      <span style="color:#e2e8f0;font-size:12px;">{margin['deviation_margin']:.2f}%p 남음</span>
+      <span style="color:#e2e8f0;font-size:12px;">{"기준 충족" if deviation <= -10 else f"{margin['deviation_margin']:.2f}%p 남음"}</span>
     </div>
     <div style="background:#1e293b;border-radius:6px;height:8px;overflow:hidden;">
       <div style="background:linear-gradient(90deg,#ff6b35,#ffaa00);height:100%;width:{margin['deviation_progress']}%;border-radius:6px;"></div>
@@ -438,7 +457,7 @@ def build_email_html(status: dict, close: float, sma200: float,
   <div>
     <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
       <span style="color:#64748b;font-size:12px;">RSI → 48</span>
-      <span style="color:#e2e8f0;font-size:12px;">{margin['rsi_margin']:.1f}pt 남음</span>
+      <span style="color:#e2e8f0;font-size:12px;">{"기준 충족" if rsi <= 48 else f"{margin['rsi_margin']:.1f}pt 남음"}</span>
     </div>
     <div style="background:#1e293b;border-radius:6px;height:8px;overflow:hidden;">
       <div style="background:linear-gradient(90deg,#ff6b35,#ffaa00);height:100%;width:{margin['rsi_progress']}%;border-radius:6px;"></div>
@@ -446,16 +465,21 @@ def build_email_html(status: dict, close: float, sma200: float,
   </div>
 </div>
 
+{chart_html}
+
+{kqld_html}
+
 <!-- 운용 규칙 -->
 <div style="margin:20px 0;padding:16px;background:#111827;border-radius:12px;border:1px solid #1e293b;">
-  <div style="color:#94a3b8;font-size:13px;font-weight:600;margin-bottom:8px;">📋 운용 규칙 ("50%로 되돌리기만")</div>
-  <div style="color:#64748b;font-size:12px;line-height:1.6;">
-    • <b style="color:#e2e8f0;">목표</b>: K-SCHD 40% / K-QLD 50% / K-SGOV 10% (총자산 기준)<br>
-    • <b style="color:#e2e8f0;">투자일</b>: 투자금은 목표보다 부족한 종목부터 산다<br>
-    • <b style="color:#e2e8f0;">60% 초과</b>: K-QLD가 60%를 넘으면 신호와 상관없이 바로 50%로<br>
-    • <b style="color:#e2e8f0;">12월</b>: 5%p 넘게 벗어난 종목만 목표로 (K-QLD 부족분은 예수금 → K-SGOV → K-SCHD)<br>
-    • <b style="color:#e2e8f0;">신호</b>: 참고용. 떨어졌다고 50% 넘게 더 사지 않는다
-  </div>
+  <div style="color:#94a3b8;font-size:13px;font-weight:600;margin-bottom:6px;">📋 운용 규칙 ("50%로 되돌리기만")</div>
+  <ul style="margin:0;padding-left:18px;color:#94a3b8;font-size:13px;line-height:1.7;">
+    <li><b style="color:#e2e8f0;">목표</b>: K-SCHD 40% / K-QLD 50% / K-SGOV 10% (총자산 기준)</li>
+    <li><b style="color:#e2e8f0;">투자일</b>: 목표보다 부족한 종목부터 사기</li>
+    <li><b style="color:#e2e8f0;">60% 초과</b>: 신호와 상관없이 바로 50%로</li>
+    <li><b style="color:#e2e8f0;">12월</b>: 5%p 넘게 벗어난 종목만 목표로</li>
+    <li><b style="color:#e2e8f0;">12월 재원</b>: 예수금 → K-SGOV → K-SCHD</li>
+    <li><b style="color:#e2e8f0;">신호</b>: 참고용 · 떨어졌다고 50% 넘게 더 사지 않기</li>
+  </ul>
 </div>
 
 <!-- Footer -->
@@ -1580,7 +1604,7 @@ def fetch_market(df_k: pd.DataFrame | None) -> dict:
     return m
 
 
-def make_ctx(today, holdings, prices, prev=None, week=None, status=None, kqld=None, market=None) -> dict:
+def make_ctx(today, holdings, prices, prev=None, week=None, status=None, kqld=None, market=None, qld_vals=None) -> dict:
     has = isa_inbox.has_balance(holdings)
     return {
         "today": today, "holdings": holdings or {}, "has_balance": has,
@@ -1588,6 +1612,8 @@ def make_ctx(today, holdings, prices, prev=None, week=None, status=None, kqld=No
         "prices": prices, "prev_prices": prev or {}, "week_prices": week or {},
         "qld_status": status, "k_status": kqld["status"] if kqld else None,
         "combined": kqld["combined"] if kqld else None, "market": market or {},
+        "qld_vals": qld_vals or {},
+        "kqld_vals": {"deviation": kqld["deviation"], "rsi": kqld["rsi"]} if kqld else {},
     }
 
 
@@ -1664,7 +1690,7 @@ def main():
     # ── 1. 데이터 수집 ──
     print("\n📡 QLD 데이터 수집 중...")
     try:
-        df = fetch_qld_data()
+        df = fetch_qld_data(period_days=420)   # 그래프용 30일 × 200일선 여유
     except Exception as e:
         error_msg = f"데이터 수집 실패: {e}"
         print(f"❌ {error_msg}")
@@ -1702,7 +1728,7 @@ def main():
     kqld = None
     df_k = None
     try:
-        df_k = fetch_kqld_data(now_kst)
+        df_k = fetch_kqld_data(now_kst, period_days=420)
         k_close = float(df_k["Close"].iloc[-1])
         k_sma200 = calc_sma200(df_k)
         k_dev = calc_deviation(k_close, k_sma200)
@@ -1714,6 +1740,7 @@ def main():
             "status": k_status,
             "combined": combine_signal(status, k_status),
             "margin": calc_margin_to_stage1(k_dev, k_rsi),
+            "series": signal_series(df_k),
         }
         print(f"\n🇰🇷 K-QLD(418660): {k_close:,.0f}원 / SMA200 {k_sma200:,.0f}원 / 괴리율 {k_dev:+.2f}% / RSI {k_rsi:.1f} → {k_status['emoji']} {k_status['name']}")
         print(f"   종합: {kqld['combined']['emoji']} {kqld['combined']['label']}")
@@ -1739,7 +1766,8 @@ def main():
         }, ensure_ascii=False, indent=1), encoding="utf-8")
 
     # ── 3.6 ISA 할 일 (보유 수량은 로그에 남기지 않음) ──
-    ctx = make_ctx(now_kst.date(), holdings, prices, prev_prices, week_prices, status, kqld, market)
+    ctx = make_ctx(now_kst.date(), holdings, prices, prev_prices, week_prices, status, kqld, market,
+                   {"deviation": deviation, "rsi": rsi})
     todo = isa_mail.todos(ctx)
     print(f"⚖️  ISA 할 일 {len(todo)}건 (내용은 메일로만)")
 
@@ -1771,7 +1799,7 @@ def main():
             isa_html = isa_mail.build_isa_section(ctx, todo)
             title = "📊 ISA 데일리"
         email_html = build_email_html(status, close, sma200, deviation, rsi, rsi_type, margin, now_kst, history, kqld,
-                                      isa_html=isa_html, title=title)
+                                      isa_html=isa_html, title=title, qld_series=signal_series(df))
         send_email(subject, email_html, dry_run=args.dry_run)
 
     # ── 6. HTML 대시보드 생성 (공개 페이지: 보유 수량·금액은 넣지 않음) ──
