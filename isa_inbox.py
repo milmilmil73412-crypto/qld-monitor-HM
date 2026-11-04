@@ -1,10 +1,12 @@
 """
 잔고 입력 (HANDOFF 4장): Gmail로 받은 캡처 → Gemini 인식 → 비공개 저장(Actions 변수 HOLDINGS_JSON)
 
-명령 메일 (본인 주소 → 본인 주소)
-- 제목 [잔고] + 캡처 이미지 첨부      → 잔고 인식 후 확인 메일
-- [수정] K-QLD 212  (제목이나 본문)    → 수량 고치기. 예수금도 가능: [수정] 예수금 300000
-- 제목 [투자금] 350만                  → 이번 투자일 투자금 변경 후 배분표 재발송
+명령 메일 (본인 주소 → 본인 주소). 제목 꼬리표([잔고] 등)는 있어도 없어도 된다.
+- 캡처 이미지 첨부                     → Gemini가 나무증권 계좌잔고 화면인지 먼저 판단.
+                                          맞으면 잔고 인식 후 확인 메일, 아니면 조용히 무시
+                                          (제목에 [잔고]가 있는데 아니면 오류 메일)
+- 한 줄에 'K-QLD 212' / '예수금 300000' → 수량 고치기 ([수정] 꼬리표는 선택)
+- 한 줄에 '투자금 350만'                → 이번 투자일 투자금 변경 후 배분표 재발송
 
 ⚠️ 이 저장소는 공개 저장소이고 Actions 로그도 공개된다. 보유 수량·금액은 절대 print 하지 않는다.
 """
@@ -85,6 +87,7 @@ def save_holdings(data: dict, dry_run: bool) -> bool:
 _SCHEMA = {
     "type": "OBJECT",
     "properties": {
+        "is_balance_screen": {"type": "BOOLEAN", "description": "증권사 계좌잔고(보유 종목 표) 화면이면 true, 다른 사진이면 false"},
         "net_assets": {"type": "NUMBER", "description": "화면 상단의 순자산(원)"},
         "items": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {
             "name": {"type": "STRING", "description": "종목명 그대로"},
@@ -94,11 +97,12 @@ _SCHEMA = {
             "cur_price": {"type": "NUMBER", "description": "현재가(원)"},
         }, "required": ["name", "qty", "value_krw"]}},
     },
-    "required": ["net_assets", "items"],
+    "required": ["is_balance_screen", "net_assets", "items"],
 }
 
 _PROMPT = (
-    "NH 나무증권 '계좌잔고' 화면 캡처예요. 이미지가 여러 장이면 같은 화면을 이어 찍은 것이니 "
+    "먼저 이 이미지가 NH 나무증권 '계좌잔고'(보유 종목 표) 화면인지 판단해서 is_balance_screen에 적으세요. "
+    "다른 사진이면 false, net_assets 0, items 빈 배열로 답하세요. 맞으면:  이미지가 여러 장이면 같은 화면을 이어 찍은 것이니 "
     "겹치는 종목은 한 번만 넣으세요. 표의 각 종목은 2줄이에요: 종목명 | 평가손익·수익률 | "
     "잔고(수량)·평가금액 | 매입가·현재가. 숫자는 쉼표 없이 원 단위 숫자로, 화면에 보이는 값만 적으세요."
 )
@@ -202,25 +206,49 @@ _ALIASES = {"K-QLD": isa.KQLD, "KQLD": isa.KQLD, "K-SCHD": isa.SCHD, "KSCHD": is
             "K-SGOV": isa.SGOV, "KSGOV": isa.SGOV, isa.KQLD: isa.KQLD, isa.SCHD: isa.SCHD, isa.SGOV: isa.SGOV}
 
 
+_AMT = r"[\d,.]+\s*(?:억)?\s*(?:[\d,.]+\s*)?(?:만)?\s*원?"
+
+
+def _pair(chunk: str):
+    mm = re.fullmatch(r"\s*([A-Za-z0-9가-힣\-]+)\s*[:=]?\s*(" + _AMT + r")\s*(?:주)?\s*", chunk)
+    if not mm:
+        return None
+    key, num = mm.group(1).upper(), mm.group(2)
+    if key in ("예수금", "현금", "CASH"):
+        v = isa.parse_amount(num)
+        return ("cash", v) if v is not None else None
+    if key in _ALIASES:
+        try:
+            return (_ALIASES[key], int(num.replace(",", "").replace("주", "").strip()))
+        except ValueError:
+            return None
+    return None
+
+
 def parse_fixes(text: str) -> list[tuple[str, int]]:
-    """'[수정] K-QLD 212, 예수금 300000' → [('418660', 212), ('cash', 300000)]"""
+    """한 줄씩 본다. 'K-QLD 212, 예수금 300000' / '[수정] K-QLD 212' → [('418660', 212), ('cash', 300000)]
+    꼬리표가 없으면 줄 전체가 '종목 수량' 형식일 때만 인정한다(일반 메모를 잘못 읽지 않도록)."""
     out = []
-    for m in re.finditer(r"\[수정\]([^\n\[]*)", text):
-        for chunk in re.split(r"[,;/]", m.group(1)):
-            mm = re.match(r"\s*([A-Za-z0-9가-힣\-]+)\s*[:=]?\s*([\d,.]+\s*(?:억|만)?\s*원?)\s*(?:주)?\s*$", chunk)
-            if not mm:
-                continue
-            key, num = mm.group(1).upper(), mm.group(2)
-            if key in ("예수금", "현금", "CASH"):
-                v = isa.parse_amount(num)
-                if v is not None:
-                    out.append(("cash", v))
-            elif key in _ALIASES:
-                try:
-                    out.append((_ALIASES[key], int(num.replace(",", "").replace("주", ""))))
-                except ValueError:
-                    pass
+    for line in text.splitlines():
+        m = re.match(r"\s*(?:\[수정\]|수정\s)\s*", line)
+        tagged = bool(m)
+        body = line[m.end():] if m else line
+        chunks = [c for c in re.split(r"[,;/]", body) if c.strip()]
+        pairs = [_pair(c) for c in chunks]
+        if tagged:
+            out += [p for p in pairs if p]
+        elif chunks and all(pairs):
+            out += pairs
     return out
+
+
+def parse_contrib(text: str) -> int | None:
+    """한 줄에 '투자금 350만' / '[투자금] 3500000' → 원 단위."""
+    for line in text.splitlines():
+        m = re.fullmatch(r"\s*\[?투자금\]?\s*[:=]?\s*(" + _AMT + r")\s*", line)
+        if m:
+            return isa.parse_amount(m.group(1)) or 0
+    return None
 
 
 def fetch_commands(state: dict) -> tuple[list[dict], dict]:
@@ -264,11 +292,12 @@ def fetch_commands(state: dict) -> tuple[list[dict], dict]:
             body = _own_text(msg)
             images = [(p.get_content_type(), p.get_payload(decode=True)) for p in msg.walk()
                       if p.get_content_maintype() == "image" and p.get_payload(decode=True)]
-            if "[잔고]" in subj:
-                cmds.append({"kind": "balance", "images": images, "when": when})
-            m = re.search(r"\[투자금\]\s*([\d,.]+\s*(?:억)?\s*(?:[\d,.]+\s*)?(?:만)?\s*원?)", subj + "\n" + body)
-            if m:
-                cmds.append({"kind": "contrib", "amount": isa.parse_amount(m.group(1)), "when": when})
+            tagged = "[잔고]" in subj
+            if tagged or images:
+                cmds.append({"kind": "balance", "images": images, "when": when, "tagged": tagged})
+            amt = parse_contrib(subj + "\n" + body)
+            if amt is not None:
+                cmds.append({"kind": "contrib", "amount": amt, "when": when})
             fixes = parse_fixes(subj + "\n" + body)
             if fixes:
                 cmds.append({"kind": "fix", "fixes": fixes, "when": when})
@@ -288,18 +317,22 @@ def apply_commands(holdings: dict | None, cmds: list[dict]) -> tuple[dict | None
         when = c["when"]
         if c["kind"] == "balance":
             if not c["images"]:
-                events.append({"kind": "error", "msg": "[잔고] 메일에 이미지가 없어요. 캡처를 첨부해 주세요."})
+                events.append({"kind": "error", "msg": "잔고 메일에 이미지가 없어요. 캡처를 첨부해 주세요."})
                 continue
             try:
                 parsed = gemini_read(c["images"])
             except Exception as e:
                 events.append({"kind": "error", "msg": f"캡처 인식 실패: {e}"})
                 continue
+            if not parsed.get("is_balance_screen") or not parsed.get("items"):
+                if c.get("tagged"):
+                    events.append({"kind": "error", "msg": "보낸 이미지가 나무증권 계좌잔고 화면이 아닌 것 같아요. 보유 종목 표가 보이게 다시 캡처해 주세요."})
+                continue  # 꼬리표 없는 다른 사진은 조용히 무시
             holdings, warns = to_holdings(parsed, when.strftime("%Y-%m-%d"), holdings)
             events.append({"kind": "balance", "warns": warns})
         elif c["kind"] == "fix":
             if not has_balance(holdings):
-                events.append({"kind": "error", "msg": "아직 저장된 잔고가 없어서 [수정]을 반영하지 못했어요. 먼저 [잔고] 캡처를 보내 주세요."})
+                events.append({"kind": "error", "msg": "아직 저장된 잔고가 없어서 [수정]을 반영하지 못했어요. 먼저 계좌잔고 캡처를 보내 주세요."})
                 continue
             for code, v in c["fixes"]:
                 if code == "cash":
@@ -310,7 +343,7 @@ def apply_commands(holdings: dict | None, cmds: list[dict]) -> tuple[dict | None
             events.append({"kind": "fix", "fixes": c["fixes"]})
         elif c["kind"] == "contrib":
             if not c["amount"]:
-                events.append({"kind": "error", "msg": "[투자금] 금액을 읽지 못했어요. 예: [투자금] 350만"})
+                events.append({"kind": "error", "msg": "투자금 금액을 읽지 못했어요. 예: 투자금 350만"})
                 continue
             d = isa.next_invest_day(when.date())
             holdings = holdings or {}

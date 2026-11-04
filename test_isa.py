@@ -117,6 +117,29 @@ def test_inbox_parsing():
     import isa_inbox as ib
     assert ib.parse_fixes("[수정] K-QLD 212") == [(KQLD, 212)]
     assert ib.parse_fixes("[수정] K-QLD 212, k-schd 10, 예수금 30만") == [(KQLD, 212), (SCHD, 10), ("cash", 300_000)]
+    # 꼬리표 없이도 한 줄 전체가 명령 형식이면 인정
+    assert ib.parse_fixes("K-QLD 212") == [(KQLD, 212)]
+    assert ib.parse_fixes("k-qld 212주, 예수금 300000") == [(KQLD, 212), ("cash", 300_000)]
+    assert ib.parse_fixes("수정 K-SGOV 30") == [(SGOV, 30)]
+    # 일반 메모는 무시
+    assert ib.parse_fixes("오늘 K-QLD 212주 샀다") == []
+    assert ib.parse_fixes("장보기 우유 2, 계란 30") == []
+    assert ib.parse_contrib("투자금 350만") == 3_500_000
+    assert ib.parse_contrib("[투자금] 3,500,000원") == 3_500_000
+    assert ib.parse_contrib("이번 달 투자금 350만 넣을까") is None
+    # 꼬리표 없는 다른 사진은 조용히 무시, [잔고] 꼬리표면 오류 안내
+    from datetime import datetime as _dt
+    _w = _dt(2026, 11, 5, 9, 0, tzinfo=ib.KST)
+    _orig = ib.gemini_read
+    ib.gemini_read = lambda imgs: {"is_balance_screen": False, "net_assets": 0, "items": []}
+    try:
+        h0 = {"updated": "2026-11-04", "holdings": {KQLD: 210}, "cash_krw": 1}
+        h1, ev = ib.apply_commands(dict(h0), [{"kind": "balance", "images": [("image/jpeg", b"x")], "when": _w, "tagged": False}])
+        assert ev == [] and h1["holdings"] == {KQLD: 210}
+        _, ev = ib.apply_commands(dict(h0), [{"kind": "balance", "images": [("image/jpeg", b"x")], "when": _w, "tagged": True}])
+        assert ev[0]["kind"] == "error"
+    finally:
+        ib.gemini_read = _orig
     # 답장: 인용된 예시 문구는 무시
     from email.message import EmailMessage
     m = EmailMessage()
@@ -125,7 +148,7 @@ def test_inbox_parsing():
     body = ib._own_text(_email.message_from_bytes(m.as_bytes()))
     assert ib.parse_fixes(body) == [(SGOV, 33)], body
     # 캡처 인식 결과 → holdings
-    parsed = {"net_assets": 15_332_363, "items": [
+    parsed = {"is_balance_screen": True, "net_assets": 15_332_363, "items": [
         {"name": "TIGER 미국나스닥100레버리지(합성)", "qty": 210, "value_krw": 7_044_450, "cur_price": 33_545},
         {"name": "KODEX 미국나스닥100", "qty": 130, "value_krw": 3_220_100},
         {"name": "KODEX 미국S&P500", "qty": 109, "value_krw": 2_471_030},

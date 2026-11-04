@@ -91,7 +91,7 @@ def todos(ctx: dict) -> list[dict]:
     out = []
     if not ctx["has_balance"]:
         out.append({"mark": "📷", "label": "잔고 캡처 보내기",
-                    "html": "아직 저장된 잔고가 없어요. 나무증권 계좌잔고 화면을 캡처해서 본인 Gmail로 보내 주세요(제목 <b>[잔고]</b>)."})
+                    "html": "아직 저장된 잔고가 없어요. 나무증권 계좌잔고 화면을 캡처해서 본인 Gmail로 보내 주세요(제목은 없어도 돼요)."})
         return out
     if pf is None:
         out.append({"mark": "⚠️", "label": "시세 확인 실패",
@@ -121,7 +121,7 @@ def todos(ctx: dict) -> list[dict]:
     if last < today and (h.get("updated") or "") < last.isoformat():
         out.append({"mark": "📷", "label": "잔고 캡처 필요",
                     "html": f"투자일({d_str(last)})이 지났는데 새 잔고 캡처가 아직 없어요(마지막 {h.get('updated', '?')}). "
-                            "매수했으면 계좌잔고 화면을 캡처해서 제목 <b>[잔고]</b>로 보내 주세요."})
+                            "매수했으면 계좌잔고 화면을 캡처해서 본인 Gmail로 보내 주세요."})
     return out
 
 
@@ -234,7 +234,7 @@ def payday_email(ctx: dict, amount: int, invest_d: date, changed: bool = False) 
     when = "내일" if (invest_d - today).days == 1 else d_str(invest_d)
     if not pf:
         body = card("배분표를 만들지 못했어요",
-                    "저장된 잔고가 없거나 시세를 가져오지 못했어요. 잔고 캡처를 제목 <b>[잔고]</b>로 보내 주세요.")
+                    "저장된 잔고가 없거나 시세를 가져오지 못했어요. 계좌잔고 캡처를 본인 Gmail로 보내 주세요.")
         return f"[ISA {kind}] ⚠️ {when} 살 것 계산 실패", page(f"💰 {when} 살 것", d_str(invest_d), body)
     plan = isa.monthly_plan(pf, prices, amount)
     stale = ""
@@ -244,7 +244,7 @@ def payday_email(ctx: dict, amount: int, invest_d: date, changed: bool = False) 
     body = (card(f"💰 {d_str(invest_d)} 투자일에 살 것 (투자금 {won(amount)})",
                  "목표(40/50/10)보다 부족한 종목부터 1주 단위로 나눴어요." + plan_table(plan, prices)
                  + _room_warning(h, today, amount) + stale, border="#00d68f")
-            + card("금액이 다르면", "본인 Gmail로 제목 <b>[투자금] 350만</b> (또는 3500000) 메일을 보내면 다시 계산해서 보내 드려요."
+            + card("금액이 다르면", "본인 Gmail로 <b>투자금 350만</b> (또는 3500000) 한 줄만 써서 보내면 다시 계산해서 보내 드려요."
                    " 가격은 오늘 종가 기준이라, 내일 실제 가격과 조금 다를 수 있어요."))
     subj = f"[ISA {kind}] 💰 {when} 살 것 · " + " / ".join(f"{NAMES[c]} {plan['shares'][c]}주" for c in CODES)
     return subj, page(f"💰 {when} 살 것", f"투자일 {d_str(invest_d)} · 계산 {d_str(today)}", body)
@@ -272,7 +272,7 @@ def weekly_email(ctx: dict, todo: list[dict]) -> tuple[str, str]:
                           + table(["종목", "가격 1주 전→지금", "주간", "비중 변화"], rows)))
         head = f"주간 {pct:+.1f}%"
     elif not ctx["has_balance"]:
-        parts.append(card("이번 주 수익", "저장된 잔고가 없어서 계산하지 못했어요. 제목 <b>[잔고]</b>로 캡처를 보내 주세요."))
+        parts.append(card("이번 주 수익", "저장된 잔고가 없어서 계산하지 못했어요. 계좌잔고 캡처를 본인 Gmail로 보내 주세요."))
     if todo:
         parts.append(card("할 일", "".join(f'<div style="margin-bottom:10px;"><b>{x["mark"]} {x["label"]}</b><br>{x["html"]}</div>' for x in todo), border="#3b82f6"))
     # 다음 주 일정 (다음 월~일)
@@ -301,8 +301,8 @@ def weekly_email(ctx: dict, todo: list[dict]) -> tuple[str, str]:
 
 # ─── 잔고 입력 결과 ───────────────────────────────────────────────────────────
 
-FIX_HELP = ("틀린 곳이 있으면 이 메일에 <b>답장</b>으로 <code>[수정] K-QLD 212</code> 처럼 보내 주세요. "
-            "여러 개는 쉼표로: <code>[수정] K-QLD 212, K-SCHD 10</code> · 예수금은 <code>[수정] 예수금 300000</code>")
+FIX_HELP = ("틀린 곳이 있으면 이 메일에 <b>답장</b>으로 <code>K-QLD 212</code> 처럼 한 줄로 보내 주세요. "
+            "여러 개는 쉼표로: <code>K-QLD 212, K-SCHD 10</code> · 예수금은 <code>예수금 300000</code>")
 
 
 def confirm_email(h: dict, ev: dict, pf: dict | None) -> tuple[str, str]:
@@ -329,4 +329,4 @@ def confirm_email(h: dict, ev: dict, pf: dict | None) -> tuple[str, str]:
 
 
 def error_email(msg: str) -> tuple[str, str]:
-    return "[ISA] ⚠️ 잔고 입력 문제", page("⚠️ 잔고 입력 문제", "", card("내용", msg) + card("다시 보내는 방법", "제목 <b>[잔고]</b>로 캡처를 첨부해서 본인 Gmail로 보내 주세요."))
+    return "[ISA] ⚠️ 잔고 입력 문제", page("⚠️ 잔고 입력 문제", "", card("내용", msg) + card("다시 보내는 방법", "계좌잔고 캡처를 첨부해서 본인 Gmail로 보내 주세요. 제목은 없어도 돼요."))
