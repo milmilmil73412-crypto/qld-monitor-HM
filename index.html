@@ -14,7 +14,7 @@
             --border-color: rgba(255,255,255,0.08);
             --text-primary: #f1f5f9;
             --text-secondary: #8b9bb4;
-            --status-color: #ffaa00;
+            --status-color: #ff6b35;
         }
 
         * { margin:0; padding:0; box-sizing:border-box; font-family:'Inter',system-ui,-apple-system,sans-serif; }
@@ -236,49 +236,49 @@
     <div class="container">
         <header>
             <h1>📊 QLD 모니터링 대시보드</h1>
-            <div class="last-updated">마지막 업데이트: 2026-11-06 11:17 KST</div>
+            <div class="last-updated">마지막 업데이트: 2026-11-07 10:49 KST</div>
         </header>
 
         <!-- 상태 히어로 카드 -->
         <div class="glass-card hero-card" id="hero-status">
-            <div class="hero-emoji">🟡</div>
+            <div class="hero-emoji">🟠</div>
             <div class="metric-sub">QLD (달러 기준)</div>
-            <div class="hero-title">관심</div>
-            <div class="hero-desc">조정 근처 — 참고용</div>
+            <div class="hero-title">1단계</div>
+            <div class="hero-desc">조정 진입 — 참고용 (규칙상 추가매수 없음)</div>
         </div>
 
         <!-- 핵심 지표 카드 -->
         <div class="metrics-grid">
             <div class="glass-card" id="metric-close">
                 <div class="metric-title">현재가 (QLD)</div>
-                <div class="metric-value">$82.81</div>
-                <div class="metric-sub">SMA200: $83.38</div>
+                <div class="metric-value">$74.11</div>
+                <div class="metric-sub">SMA200: $83.40</div>
             </div>
             <div class="glass-card" id="metric-deviation">
                 <div class="metric-title">200일선 괴리율</div>
-                <div class="metric-value" style="color:#00d68f">-0.69%</div>
+                <div class="metric-value" style="color:#ff3860">-11.14%</div>
                 <div class="metric-sub">임계: -10% / -18% / -26%</div>
             </div>
             <div class="glass-card" id="metric-rsi">
-                <div class="metric-title">주봉 RSI (진행형)</div>
-                <div class="metric-value" style="color:#ffaa00">44.8</div>
+                <div class="metric-title">주봉 RSI (확정)</div>
+                <div class="metric-value" style="color:#ff3860">37.5</div>
                 <div class="metric-sub">임계: 48 / 42 / 36</div>
             </div>
         </div>
 
 
         <!-- K-QLD (원화 기준) -->
-        <div class="glass-card" id="kqld-section" style="margin-bottom:1.5rem;border:1px solid #ff6b3566;">
-            <div class="metric-title">K-QLD 418660 (원화 기준) · 기준일 2026-11-05</div>
-            <div style="font-size:1.6rem;font-weight:700;color:#ff6b35;margin:0.3rem 0;">🟠 1단계</div>
+        <div class="glass-card" id="kqld-section" style="margin-bottom:1.5rem;border:1px solid #ff386066;">
+            <div class="metric-title">K-QLD 418660 (원화 기준) · 기준일 2026-11-06</div>
+            <div style="font-size:1.6rem;font-weight:700;color:#ff3860;margin:0.3rem 0;">🔴 2단계</div>
             <div class="metrics-grid" style="margin:0.8rem 0 0;">
-                <div><div class="metric-sub">종가 / 200일선</div><div class="metric-value" style="font-size:1.3rem;">33,890원</div><div class="metric-sub">SMA200 40,129원</div></div>
-                <div><div class="metric-sub">200일선 괴리율</div><div class="metric-value" style="font-size:1.3rem;color:#ff3860">-15.55%</div><div class="metric-sub">1단계까지 0.00%p</div></div>
-                <div><div class="metric-sub">주봉 RSI</div><div class="metric-value" style="font-size:1.3rem;color:#ff3860">37.2</div><div class="metric-sub">1단계까지 0.0pt</div></div>
+                <div><div class="metric-sub">종가 / 200일선</div><div class="metric-value" style="font-size:1.3rem;">31,535원</div><div class="metric-sub">SMA200 40,107원</div></div>
+                <div><div class="metric-sub">200일선 괴리율</div><div class="metric-value" style="font-size:1.3rem;color:#ff3860">-21.37%</div><div class="metric-sub">1단계까지 0.00%p</div></div>
+                <div><div class="metric-sub">주봉 RSI</div><div class="metric-value" style="font-size:1.3rem;color:#ff3860">34.1</div><div class="metric-sub">1단계까지 0.0pt</div></div>
             </div>
             <div style="margin-top:1rem;padding-top:0.8rem;border-top:1px solid rgba(148,163,184,0.2);">
-                <b>종합: ⚪🔴 K-QLD만 신호</b>
-                <div class="metric-sub" style="margin-top:0.3rem;">나스닥보다 환율(원화 강세) 영향이 큰 신호 (참고용)</div>
+                <b>종합: 🔴🔴 둘 다 신호</b>
+                <div class="metric-sub" style="margin-top:0.3rem;">나스닥 자체 하락 + 원화 기준으로도 싼 구간 (참고용, 매수량은 목표비중 규칙대로)</div>
             </div>
         </div>
 
@@ -288,11 +288,11 @@
                 <div class="metric-title">1단계 진입까지 — 괴리율</div>
                 <div class="progress-container">
                     <div class="progress-label">
-                        <span>현재: -0.69%</span>
-                        <span>목표: -10% (9.31%p 남음)</span>
+                        <span>현재: -11.14%</span>
+                        <span>목표: -10% (0.00%p 남음)</span>
                     </div>
                     <div class="progress-bar-bg">
-                        <div class="progress-fill" id="dev-bar"></div>
+                        <div class="progress-fill reached" id="dev-bar"></div>
                     </div>
                 </div>
             </div>
@@ -300,7 +300,7 @@
                 <div class="metric-title">1단계 진입까지 — RSI</div>
                 <div class="progress-container">
                     <div class="progress-label">
-                        <span>현재: 44.8</span>
+                        <span>현재: 37.5</span>
                         <span>목표: 48 (0.0pt 남음)</span>
                     </div>
                     <div class="progress-bar-bg">
@@ -433,13 +433,13 @@
         // ── Progress Bar Animation ──
         window.addEventListener('load', function() {
             setTimeout(function() {
-                document.getElementById('dev-bar').style.width = '6.9%';
+                document.getElementById('dev-bar').style.width = '100.0%';
                 document.getElementById('rsi-bar').style.width = '100.0%';
             }, 300);
         });
 
         // ── Chart ──
-        const chartData = [{"date": "2026-10-01", "close": 95.65, "sma200": 80.85, "deviation": 18.3, "rsi": 59.5, "status": "안정"}, {"date": "2026-10-02", "close": 96.24, "sma200": 80.98, "deviation": 18.84, "rsi": 60.3, "status": "안정"}, {"date": "2026-10-03", "close": NaN, "sma200": 81.04, "deviation": NaN, "rsi": 60.3, "status": "관심"}, {"date": "2026-10-05", "close": 98.13, "sma200": 81.13, "deviation": 20.96, "rsi": 62.2, "status": "안정"}, {"date": "2026-10-06", "close": 99.84, "sma200": 81.28, "deviation": 22.84, "rsi": 64.7, "status": "안정"}, {"date": "2026-10-07", "close": 100.77, "sma200": 81.44, "deviation": 23.73, "rsi": 65.5, "status": "안정"}, {"date": "2026-10-08", "close": 100.23, "sma200": 81.6, "deviation": 22.83, "rsi": 65.0, "status": "안정"}, {"date": "2026-10-09", "close": 97.54, "sma200": 81.73, "deviation": 19.34, "rsi": 62.5, "status": "안정"}, {"date": "2026-10-10", "close": 98.42, "sma200": 81.87, "deviation": 20.22, "rsi": 63.6, "status": "안정"}, {"date": "2026-10-12", "close": 98.42, "sma200": 81.87, "deviation": 20.22, "rsi": 63.6, "status": "안정"}, {"date": "2026-10-13", "close": 97.08, "sma200": 81.99, "deviation": 18.4, "rsi": 61.0, "status": "안정"}, {"date": "2026-10-14", "close": 96.44, "sma200": 82.11, "deviation": 17.45, "rsi": 60.1, "status": "안정"}, {"date": "2026-10-15", "close": 92.55, "sma200": 82.21, "deviation": 12.58, "rsi": 54.9, "status": "관심"}, {"date": "2026-10-16", "close": 92.36, "sma200": 82.31, "deviation": 12.21, "rsi": 54.7, "status": "관심"}, {"date": "2026-10-17", "close": NaN, "sma200": 82.37, "deviation": NaN, "rsi": 54.7, "status": "관심"}, {"date": "2026-10-19", "close": 87.72, "sma200": 82.39, "deviation": 6.47, "rsi": 49.7, "status": "관심"}, {"date": "2026-10-22", "close": NaN, "sma200": 82.65, "deviation": NaN, "rsi": 51.3, "status": "관심"}, {"date": "2026-10-23", "close": NaN, "sma200": 82.74, "deviation": NaN, "rsi": 53.1, "status": "관심"}, {"date": "2026-10-24", "close": NaN, "sma200": 82.81, "deviation": NaN, "rsi": 47.9, "status": "관심"}, {"date": "2026-10-26", "close": 86.15, "sma200": 82.83, "deviation": 4.01, "rsi": 47.8, "status": "관심"}, {"date": "2026-10-27", "close": 88.03, "sma200": 82.91, "deviation": 6.18, "rsi": 50.0, "status": "관심"}, {"date": "2026-10-28", "close": 90.29, "sma200": 82.99, "deviation": 8.79, "rsi": 52.3, "status": "관심"}, {"date": "2026-10-29", "close": 91.39, "sma200": 83.09, "deviation": 9.99, "rsi": 53.4, "status": "관심"}, {"date": "2026-10-30", "close": 88.74, "sma200": 83.16, "deviation": 6.7, "rsi": 50.8, "status": "관심"}, {"date": "2026-10-31", "close": 82.59, "sma200": 83.22, "deviation": -0.76, "rsi": 44.4, "status": "관심"}, {"date": "2026-11-02", "close": 82.59, "sma200": 83.22, "deviation": -0.76, "rsi": 44.4, "status": "관심"}, {"date": "2026-11-03", "close": 80.3, "sma200": 83.26, "deviation": -3.56, "rsi": 42.5, "status": "관심"}, {"date": "2026-11-04", "close": 81.28, "sma200": 83.31, "deviation": -2.44, "rsi": 43.3, "status": "관심", "k_date": "2026-11-04", "k_close": 33750.0, "k_sma200": 40136.0, "k_deviation": -15.91, "k_rsi": 37.1, "k_status": "1단계", "combined": "kqld_only"}, {"date": "2026-11-05", "close": 81.28, "sma200": 83.31, "deviation": -2.44, "rsi": 43.3, "status": "관심", "k_date": "2026-11-04", "k_close": 33750.0, "k_sma200": 40136.0, "k_deviation": -15.91, "k_rsi": 37.0, "k_status": "1단계", "combined": "kqld_only"}, {"date": "2026-11-06", "close": 82.81, "sma200": 83.38, "deviation": -0.69, "rsi": 44.8, "status": "관심", "k_date": "2026-11-05", "k_close": 33890.0, "k_sma200": 40129.0, "k_deviation": -15.55, "k_rsi": 37.2, "k_status": "1단계", "combined": "kqld_only"}];
+        const chartData = [{"date": "2026-10-02", "close": 96.24, "sma200": 80.98, "deviation": 18.84, "rsi": 60.3, "status": "안정"}, {"date": "2026-10-03", "close": NaN, "sma200": 81.04, "deviation": NaN, "rsi": 60.3, "status": "관심"}, {"date": "2026-10-05", "close": 98.13, "sma200": 81.13, "deviation": 20.96, "rsi": 62.2, "status": "안정"}, {"date": "2026-10-06", "close": 99.84, "sma200": 81.28, "deviation": 22.84, "rsi": 64.7, "status": "안정"}, {"date": "2026-10-07", "close": 100.77, "sma200": 81.44, "deviation": 23.73, "rsi": 65.5, "status": "안정"}, {"date": "2026-10-08", "close": 100.23, "sma200": 81.6, "deviation": 22.83, "rsi": 65.0, "status": "안정"}, {"date": "2026-10-09", "close": 97.54, "sma200": 81.73, "deviation": 19.34, "rsi": 62.5, "status": "안정"}, {"date": "2026-10-10", "close": 98.42, "sma200": 81.87, "deviation": 20.22, "rsi": 63.6, "status": "안정"}, {"date": "2026-10-12", "close": 98.42, "sma200": 81.87, "deviation": 20.22, "rsi": 63.6, "status": "안정"}, {"date": "2026-10-13", "close": 97.08, "sma200": 81.99, "deviation": 18.4, "rsi": 61.0, "status": "안정"}, {"date": "2026-10-14", "close": 96.44, "sma200": 82.11, "deviation": 17.45, "rsi": 60.1, "status": "안정"}, {"date": "2026-10-15", "close": 92.55, "sma200": 82.21, "deviation": 12.58, "rsi": 54.9, "status": "관심"}, {"date": "2026-10-16", "close": 92.36, "sma200": 82.31, "deviation": 12.21, "rsi": 54.7, "status": "관심"}, {"date": "2026-10-17", "close": NaN, "sma200": 82.37, "deviation": NaN, "rsi": 54.7, "status": "관심"}, {"date": "2026-10-19", "close": 87.72, "sma200": 82.39, "deviation": 6.47, "rsi": 49.7, "status": "관심"}, {"date": "2026-10-22", "close": NaN, "sma200": 82.65, "deviation": NaN, "rsi": 51.3, "status": "관심"}, {"date": "2026-10-23", "close": NaN, "sma200": 82.74, "deviation": NaN, "rsi": 53.1, "status": "관심"}, {"date": "2026-10-24", "close": NaN, "sma200": 82.81, "deviation": NaN, "rsi": 47.9, "status": "관심"}, {"date": "2026-10-26", "close": 86.15, "sma200": 82.83, "deviation": 4.01, "rsi": 47.8, "status": "관심"}, {"date": "2026-10-27", "close": 88.03, "sma200": 82.91, "deviation": 6.18, "rsi": 50.0, "status": "관심"}, {"date": "2026-10-28", "close": 90.29, "sma200": 82.99, "deviation": 8.79, "rsi": 52.3, "status": "관심"}, {"date": "2026-10-29", "close": 91.39, "sma200": 83.09, "deviation": 9.99, "rsi": 53.4, "status": "관심"}, {"date": "2026-10-30", "close": 88.74, "sma200": 83.16, "deviation": 6.7, "rsi": 50.8, "status": "관심"}, {"date": "2026-10-31", "close": 82.59, "sma200": 83.22, "deviation": -0.76, "rsi": 44.4, "status": "관심"}, {"date": "2026-11-02", "close": 82.59, "sma200": 83.22, "deviation": -0.76, "rsi": 44.4, "status": "관심"}, {"date": "2026-11-03", "close": 80.3, "sma200": 83.26, "deviation": -3.56, "rsi": 42.5, "status": "관심"}, {"date": "2026-11-04", "close": 81.28, "sma200": 83.31, "deviation": -2.44, "rsi": 43.3, "status": "관심", "k_date": "2026-11-04", "k_close": 33750.0, "k_sma200": 40136.0, "k_deviation": -15.91, "k_rsi": 37.1, "k_status": "1단계", "combined": "kqld_only"}, {"date": "2026-11-05", "close": 81.28, "sma200": 83.31, "deviation": -2.44, "rsi": 43.3, "status": "관심", "k_date": "2026-11-04", "k_close": 33750.0, "k_sma200": 40136.0, "k_deviation": -15.91, "k_rsi": 37.0, "k_status": "1단계", "combined": "kqld_only"}, {"date": "2026-11-06", "close": 82.81, "sma200": 83.38, "deviation": -0.69, "rsi": 44.8, "status": "관심", "k_date": "2026-11-05", "k_close": 33890.0, "k_sma200": 40129.0, "k_deviation": -15.55, "k_rsi": 37.2, "k_status": "1단계", "combined": "kqld_only"}, {"date": "2026-11-07", "close": 74.11, "sma200": 83.4, "deviation": -11.14, "rsi": 37.5, "status": "1단계", "k_date": "2026-11-06", "k_close": 31535.0, "k_sma200": 40107.0, "k_deviation": -21.37, "k_rsi": 34.1, "k_status": "2단계", "combined": "both"}];
 
         function drawChart() {
             const canvas = document.getElementById('trendChart');
@@ -658,7 +658,7 @@
         // ── Portfolio Manager (localStorage) ──
         // ══════════════════════════════════════════════
         const PF_KEY = 'qld_portfolio_v2';
-        const SERVER_PRICES = {"458730": 15420.0, "418660": 33890.0, "0046A0": 9290.0, "USDKRW": 1356.3699951171875};
+        const SERVER_PRICES = {"458730": 15250.0, "418660": 31535.0, "0046A0": 9390.0, "USDKRW": 1356.3399658203125};
         let usdKrwRate = SERVER_PRICES["USDKRW"] || 1380; // Python에서 수집한 환율
 
         const PF_COLORS = [
