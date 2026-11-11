@@ -672,5 +672,20 @@
     "k_rsi": 33.9,
     "k_status": "2단계",
     "combined": "kqld_only"
+  },
+  {
+    "date": "2026-11-11",
+    "close": 78.2,
+    "sma200": 83.47,
+    "deviation": -6.31,
+    "rsi": 42.3,
+    "status": "관심",
+    "k_date": "2026-11-10",
+    "k_close": 32940.0,
+    "k_sma200": 40063.0,
+    "k_deviation": -17.78,
+    "k_rsi": 37.4,
+    "k_status": "1단계",
+    "combined": "kqld_only"
   }
 ]
