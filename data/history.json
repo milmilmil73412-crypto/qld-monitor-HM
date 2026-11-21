@@ -807,5 +807,20 @@
     "k_rsi": 36.4,
     "k_status": "2단계",
     "combined": "both"
+  },
+  {
+    "date": "2026-11-21",
+    "close": 63.52,
+    "sma200": 83.62,
+    "deviation": -24.04,
+    "rsi": 33.1,
+    "status": "2단계",
+    "k_date": "2026-11-20",
+    "k_close": 29040.0,
+    "k_sma200": 39926.0,
+    "k_deviation": -27.26,
+    "k_rsi": 33.1,
+    "k_status": "3단계",
+    "combined": "both"
   }
 ]
