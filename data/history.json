@@ -1,13 +1,5 @@
 [
   {
-    "date": "2026-08-12",
-    "close": 90.98,
-    "sma200": 77.4,
-    "deviation": 17.55,
-    "rsi": 57.4,
-    "status": "안정"
-  },
-  {
     "date": "2026-08-13",
     "close": 92.32,
     "sma200": 77.51,
@@ -864,6 +856,21 @@
     "k_deviation": -27.16,
     "k_rsi": 33.1,
     "k_status": "3단계",
+    "combined": "both"
+  },
+  {
+    "date": "2026-11-28",
+    "close": 71.75,
+    "sma200": 83.64,
+    "deviation": -14.22,
+    "rsi": 40.9,
+    "status": "1단계",
+    "k_date": "2026-11-27",
+    "k_close": 30025.0,
+    "k_sma200": 39779.0,
+    "k_deviation": -24.52,
+    "k_rsi": 35.4,
+    "k_status": "2단계",
     "combined": "both"
   }
 ]
